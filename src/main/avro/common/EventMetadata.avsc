@@ -1,0 +1,40 @@
+{
+  "type": "record",
+  "namespace": "com.c4ang.events.common",
+  "name": "EventMetadata",
+  "doc": "이벤트 메타데이터 - 모든 이벤트에 공통으로 포함되는 정보",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string",
+      "doc": "이벤트 고유 ID (UUID)"
+    },
+    {
+      "name": "eventType",
+      "type": "string",
+      "doc": "이벤트 타입 (예: OrderCreated, PaymentCompleted)"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "이벤트 발생 시각 (Epoch milliseconds)"
+    },
+    {
+      "name": "correlationId",
+      "type": "string",
+      "doc": "비즈니스 상관 ID (예: 주문 ID, 결제 ID)"
+    },
+    {
+      "name": "version",
+      "type": "string",
+      "default": "1.0",
+      "doc": "이벤트 스키마 버전"
+    },
+    {
+      "name": "source",
+      "type": "string",
+      "doc": "이벤트 발행 서비스 이름"
+    }
+  ]
+}

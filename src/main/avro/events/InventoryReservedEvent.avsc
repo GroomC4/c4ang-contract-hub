@@ -1,0 +1,44 @@
+{
+  "type": "record",
+  "namespace": "com.c4ang.events.inventory",
+  "name": "InventoryReservedEvent",
+  "doc": "재고 예약 완료 이벤트 - 재고가 성공적으로 예약되었을 때 발행",
+  "fields": [
+    {
+      "name": "metadata",
+      "type": "com.c4ang.events.common.EventMetadata",
+      "doc": "이벤트 메타데이터"
+    },
+    {
+      "name": "reservationId",
+      "type": "string",
+      "doc": "재고 예약 ID"
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "주문 ID"
+    },
+    {
+      "name": "productId",
+      "type": "string",
+      "doc": "상품 ID"
+    },
+    {
+      "name": "quantity",
+      "type": "int",
+      "doc": "예약 수량"
+    },
+    {
+      "name": "warehouseId",
+      "type": "string",
+      "doc": "창고 ID"
+    },
+    {
+      "name": "expiresAt",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "예약 만료 시각"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "namespace": "com.c4ang.events.payment",
+  "name": "PaymentFailedEvent",
+  "doc": "결제 실패 이벤트 - 결제가 실패했을 때 발행 (보상 트랜잭션 트리거)",
+  "fields": [
+    {
+      "name": "metadata",
+      "type": "com.c4ang.events.common.EventMetadata",
+      "doc": "이벤트 메타데이터"
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "주문 ID"
+    },
+    {
+      "name": "reason",
+      "type": {
+        "type": "enum",
+        "name": "PaymentFailureReason",
+        "symbols": ["INSUFFICIENT_BALANCE", "CARD_DECLINED", "INVALID_CARD", "NETWORK_ERROR", "TIMEOUT", "FRAUD_DETECTED", "UNKNOWN"]
+      },
+      "doc": "결제 실패 사유"
+    },
+    {
+      "name": "failureMessage",
+      "type": "string",
+      "doc": "실패 상세 메시지"
+    },
+    {
+      "name": "retryable",
+      "type": "boolean",
+      "default": false,
+      "doc": "재시도 가능 여부"
+    }
+  ]
+}
