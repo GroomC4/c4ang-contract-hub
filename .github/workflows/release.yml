@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # GitHub Release 생성 권한
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
+
+      - name: Generate Avro classes
+        run: ./gradlew generateAvroJava
+
+      - name: Build project
+        run: ./gradlew build --no-daemon
+
+      - name: Run tests
+        run: ./gradlew test --no-daemon
+
+      - name: Run contract tests
+        run: ./gradlew contractTest --no-daemon
+
+      - name: Generate Avro documentation
+        run: ./gradlew generateAvroEventDocs
+
+      - name: Package artifacts
+        run: ./gradlew assemble --no-daemon
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts-${{ steps.version.outputs.version }}
+          path: |
+            build/libs/*.jar
+            docs/generated/*.md
+          retention-days: 90
+
+      - name: Create Release Notes
+        id: release_notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          ## 📦 C4ang Contract Hub ${{ steps.version.outputs.tag }}
+
+          ### 🚀 How to Use
+
+          Add to your `build.gradle.kts`:
+
+          ```kotlin
+          repositories {
+              maven { url = uri("https://jitpack.io") }
+          }
+
+          dependencies {
+              implementation("com.github.groom:c4ang-contract-hub:${{ steps.version.outputs.version }}")
+          }
+          ```
+
+          ### 📋 What's Included
+
+          - ✅ Avro event schemas and generated classes
+          - ✅ Spring Cloud Contract specifications
+          - ✅ Event flow documentation
+
+          ### 🔗 Links
+
+          - [JitPack Build](https://jitpack.io/#groom/c4ang-contract-hub/${{ steps.version.outputs.version }})
+          - [Documentation](https://github.com/groom/c4ang-contract-hub#readme)
+
+          ### 📚 Documentation
+
+          - [Quick Start Guide](docs/quick-start-guide.md)
+          - [JitPack Publishing Guide](docs/jitpack-publishing-guide.md)
+          - [Versioning Strategy](docs/versioning-strategy.md)
+
+          ---
+
+          **Full Changelog**: https://github.com/groom/c4ang-contract-hub/commits/${{ steps.version.outputs.tag }}
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.version.outputs.tag }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          files: |
+            build/libs/*.jar
+            docs/generated/*.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger JitPack build
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          echo "🔨 Triggering JitPack build for version $VERSION..."
+
+          # JitPack build trigger (optional, JitPack이 자동으로 빌드하지만 미리 트리거 가능)
+          curl -s "https://jitpack.io/api/builds/com.github.groom/c4ang-contract-hub/$VERSION" || true
+
+          echo ""
+          echo "✅ Release $VERSION completed!"
+          echo ""
+          echo "📦 Artifact is now available on JitPack:"
+          echo "    implementation(\"com.github.groom:c4ang-contract-hub:$VERSION\")"
+          echo ""
+          echo "🔗 JitPack: https://jitpack.io/#groom/c4ang-contract-hub/$VERSION"
+          echo "🔗 GitHub Release: https://github.com/groom/c4ang-contract-hub/releases/tag/v$VERSION"
+
+      - name: Notify release completion
+        if: success()
+        run: |
+          echo "::notice title=Release Complete::Version ${{ steps.version.outputs.version }} has been released successfully!"

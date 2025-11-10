@@ -58,6 +58,12 @@ Choreography 방식의 Saga 패턴에서 Kafka를 통해 비동기적으로 전�
 ```
 c4ang-contract-hub/  (단일 모듈 프로젝트)
 │
+├── .github/
+│   └── workflows/                      # GitHub Actions CI/CD
+│       ├── pr-validation.yml           # PR 검증
+│       ├── branch-build.yml            # 브랜치 빌드
+│       └── release.yml                 # 릴리스 배포
+│
 ├── src/
 │   ├── main/
 │   │   ├── kotlin/                    # 메인 소스 코드
@@ -235,6 +241,75 @@ build/generated-main-avro-java/com/c4ang/events/
 - `InventoryReservationFailedEvent` - 재고 예약 실패 (보상)
 - `PaymentCancelledEvent` - 결제 취소 (보상)
 
+## 🔄 CI/CD 및 버전 관리
+
+### GitHub Actions 자동화
+
+이 프로젝트는 GitHub Actions를 통해 자동 빌드 및 배포를 수행합니다.
+
+| Workflow | 트리거 | 동작 | Badge |
+|----------|--------|------|-------|
+| **PR Validation** | PR 생성/업데이트 | 빌드 + 테스트 | ![PR Validation](https://github.com/groom/c4ang-contract-hub/workflows/PR%20Validation/badge.svg) |
+| **Branch Build** | develop/feature Push | 빌드 + 테스트 + JitPack 준비 | ![Branch Build](https://github.com/groom/c4ang-contract-hub/workflows/Branch%20Build/badge.svg) |
+| **Release** | Tag Push (v*) | 빌드 + 테스트 + GitHub Release | ![Release](https://github.com/groom/c4ang-contract-hub/workflows/Release/badge.svg) |
+
+### 브랜치별 버전 전략
+
+**JitPack Branch 기반 버전 관리**를 사용합니다:
+
+```bash
+# Production (main)
+git tag v1.0.0
+git push origin v1.0.0
+# → JitPack: 1.0.0
+
+# Development (develop)
+git push origin develop
+# → JitPack: develop-SNAPSHOT
+
+# Feature (feature/user-auth)
+git push origin feature/user-auth
+# → JitPack: feature-user-auth-SNAPSHOT
+```
+
+**Consumer/Producer에서 환경별 버전 사용:**
+
+```kotlin
+dependencies {
+    // Production
+    implementation("com.github.groom:c4ang-contract-hub:1.0.0")
+
+    // Development
+    // implementation("com.github.groom:c4ang-contract-hub:develop-SNAPSHOT")
+
+    // Feature Test
+    // implementation("com.github.groom:c4ang-contract-hub:feature-user-auth-SNAPSHOT")
+}
+```
+
+**상세 가이드**: [버전 관리 전략](docs/versioning-strategy.md)
+
+### 릴리스 프로세스
+
+```bash
+# 1. develop에서 기능 개발 및 테스트
+git checkout develop
+# ... 개발 ...
+
+# 2. main으로 머지
+git checkout main
+git merge develop
+
+# 3. 버전 태그 생성 및 Push
+git tag v1.0.0
+git push origin v1.0.0
+
+# 4. GitHub Actions가 자동으로:
+#    - 빌드 및 테스트 실행
+#    - GitHub Release 생성
+#    - JitPack 빌드 트리거
+```
+
 ## 🔧 개발 워크플로우
 
 ### HTTP API Contract
@@ -256,6 +331,7 @@ build/generated-main-avro-java/com/c4ang/events/
 
 ### 시작하기
 - **[Quick Start Guide](docs/quick-start-guide.md)** ⭐ - 프로젝트 사용법, 워크플로우, IDE 설정
+- **[버전 관리 전략](docs/versioning-strategy.md)** 🔄 - Git Flow 브랜치 전략 및 JitPack 배포 가이드
 - **[JitPack 배포 가이드](docs/jitpack-publishing-guide.md)** 🚀 - 토이 프로젝트를 위한 무료 배포 방법
 - **[Avro Artifact 배포 가이드](docs/avro-artifact-publishing.md)** - 다른 서비스에서 Avro 클래스 사용하기
 - **[Avro 통합 전략](docs/avro-integration-strategy.md)** - Avro 스키마 활용 및 문서 자동화 전략
