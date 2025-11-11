@@ -35,7 +35,7 @@ contract {
                 "quantity": ${fromRequest().body("$.quantity")},
                 "warehouseId": "WH-001",
                 "status": "RESERVED",
-                "expiresAt": "${value(client(regex(isoDateTime())), server("2025-01-10T10:05:00Z"))}"
+                "expiresAt": "${value(client(regex("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z")), server("2025-01-10T10:05:00Z"))}"
             }
         """.trimIndent())
     }

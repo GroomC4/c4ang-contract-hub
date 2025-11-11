@@ -34,7 +34,7 @@ contract {
                 "quantity": ${fromRequest().body("$.quantity")},
                 "customerId": "${fromRequest().body("$.customerId")}",
                 "status": "CREATED",
-                "createdAt": "${value(client(regex(isoDateTime())), server("2025-01-10T10:00:00Z"))}"
+                "createdAt": "${value(client(regex("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z")), server("2025-01-10T10:00:00Z"))}"
             }
         """.trimIndent())
     }

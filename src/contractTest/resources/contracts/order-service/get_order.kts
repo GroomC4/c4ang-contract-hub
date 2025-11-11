@@ -22,8 +22,8 @@ contract {
                 "quantity": 2,
                 "customerId": "CUST-12345",
                 "status": "COMPLETED",
-                "createdAt": "${value(regex(isoDateTime()))}",
-                "updatedAt": "${value(regex(isoDateTime()))}"
+                "createdAt": "${value(regex("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"))}",
+                "updatedAt": "${value(regex("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"))}"
             }
         """.trimIndent())
     }

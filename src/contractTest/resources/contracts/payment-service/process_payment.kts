@@ -34,7 +34,7 @@ contract {
                 "amount": ${fromRequest().body("$.amount")},
                 "paymentMethod": "${fromRequest().body("$.paymentMethod")}",
                 "status": "COMPLETED",
-                "processedAt": "${value(client(regex(isoDateTime())), server("2025-01-10T10:00:00Z"))}"
+                "processedAt": "${value(client(regex("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z")), server("2025-01-10T10:00:00Z"))}"
             }
         """.trimIndent())
     }
