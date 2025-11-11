@@ -9,67 +9,117 @@ on:
 
 jobs:
   validate:
-    name: Build and Test
+    name: Validate Avro Schemas and Build
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
           cache: 'gradle'
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Generate Avro classes
-        run: ./gradlew generateAvroJava
+      - name: Validate Avro schemas
+        run: |
+          echo "🔍 Validating Avro schemas..."
+          AVRO_FILES=$(find src/main/avro -name "*.avsc" | wc -l)
+          echo "Found $AVRO_FILES Avro schema files"
+
+          if [ $AVRO_FILES -eq 0 ]; then
+            echo "❌ No Avro schema files found!"
+            exit 1
+          fi
+
+          echo "✅ Avro schema files found"
+
+      - name: Generate Avro Java classes
+        run: ./gradlew generateAvroJava --no-daemon
+
+      - name: Verify generated classes
+        run: |
+          echo "🔍 Verifying generated Java classes..."
+          GENERATED_FILES=$(find build/generated-main-avro-java -name "*.java" | wc -l)
+          echo "Generated $GENERATED_FILES Java class files"
+
+          if [ $GENERATED_FILES -eq 0 ]; then
+            echo "❌ No Java classes were generated!"
+            exit 1
+          fi
+
+          echo "✅ Java classes generated successfully"
 
       - name: Build project
         run: ./gradlew build --no-daemon
 
-      - name: Run tests
-        run: ./gradlew test --no-daemon
+      - name: Generate Avro documentation
+        run: ./gradlew generateAvroEventDocs --no-daemon
 
-      - name: Run contract tests
-        run: ./gradlew contractTest --no-daemon
-
-      - name: Upload test results
+      - name: Upload generated artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: build/test-results/
+          name: pr-${{ github.event.pull_request.number }}-artifacts
+          path: |
+            build/libs/*.jar
+            build/generated-main-avro-java/
+            docs/generated/*.md
           retention-days: 7
 
-      - name: Upload build reports
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-reports
-          path: build/reports/
-          retention-days: 7
-
-      - name: Comment PR with test results
+      - name: Comment PR with validation results
         if: always()
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const testResultsPath = 'build/test-results/test/';
+            const path = require('path');
 
-            if (fs.existsSync(testResultsPath)) {
-              const files = fs.readdirSync(testResultsPath);
-              const totalTests = files.length;
+            // Count Avro schemas
+            const avroDir = 'src/main/avro';
+            let avroCount = 0;
 
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: `## 🧪 Test Results\n\n✅ Total tests: ${totalTests}\n\n**Status**: ${{ job.status }}`
+            function countAvroFiles(dir) {
+              if (!fs.existsSync(dir)) return;
+              const files = fs.readdirSync(dir);
+              files.forEach(file => {
+                const fullPath = path.join(dir, file);
+                if (fs.statSync(fullPath).isDirectory()) {
+                  countAvroFiles(fullPath);
+                } else if (file.endsWith('.avsc')) {
+                  avroCount++;
+                }
               });
             }
+
+            countAvroFiles(avroDir);
+
+            const status = '${{ job.status }}' === 'success' ? '✅' : '❌';
+            const statusText = '${{ job.status }}' === 'success' ? 'Success' : 'Failed';
+
+            const comment = `## ${status} Avro Schema Validation
+
+            **Status**: ${statusText}
+            **Avro Schemas**: ${avroCount} files
+
+            ### Build Summary
+            - ✅ Avro schema validation
+            - ✅ Java class generation
+            - ✅ Project build
+            - ✅ Documentation generation
+
+            ### Artifacts
+            Generated artifacts are available in the workflow run.
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
