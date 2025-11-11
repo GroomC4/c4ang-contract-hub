@@ -1,280 +1,333 @@
 # C4ang Contract Hub
 
-> Contract testing suite for the c4ang e-commerce microservices ecosystem
+> 이벤트 기반 MSA를 위한 Avro 스키마 및 이벤트 흐름 문서 관리 레포지토리
 
 ## 📋 프로젝트 개요
 
-C4ang Contract Hub는 **Kotlin으로 개발된** MSA(Microservices Architecture) 환경에서 서비스 간 통신의 안정성과 일관성을 보장하기 위한 중앙 집중식 계약 관리 시스템입니다. Spring Cloud Contract의 Kotlin DSL을 활용하여 타입 안전한 계약 정의와 테스트를 제공합니다.
+C4ang Contract Hub는 **이벤트 기반 MSA(Microservices Architecture)** 환경에서 서비스 간 이벤트 통신을 위한 **중앙 집중식 스키마 및 문서 관리 시스템**입니다. Apache Avro 스키마를 정의하고 Java class를 생성하여 각 서비스에서 사용할 수 있도록 artifact를 배포합니다.
 
 ## 🛠️ 기술 스택
 
-- **Contract Testing**: Spring Cloud Contract (Kotlin DSL)
-- **Message Broker**: Apache Kafka
-- **Serialization**: Apache Avro
-- **Schema Registry**: Confluent Schema Registry
+- **Schema Definition**: Apache Avro (.avsc)
+- **Code Generation**: Avro → Java Classes (Kotlin에서 사용 가능)
+- **Serialization**: Apache Avro + Confluent Schema Registry
 - **Build Tool**: Gradle 8.5 (Kotlin DSL)
-- **Language**: Kotlin 1.9.21 + Java 17
-- **Framework**: Spring Boot 3.2
+- **Language**: Java 21
+- **Distribution**: JitPack / Maven Local
 
 ## 🎯 핵심 책임
 
-### 1. MSA 서비스 간 명세 관리 (Spring Cloud Contract)
+### 1. Avro 스키마 관리
 
-Spring Cloud Contract를 활용하여 Producer-Consumer 간의 API 계약을 관리하고 검증합니다.
+**Kafka 이벤트를 위한 Avro 스키마를 중앙에서 관리합니다.**
 
 **주요 기능:**
-- Producer 서비스의 API 명세를 Kotlin DSL로 정의
-- Consumer 서비스를 위한 Stub 자동 생성
-- Contract 기반 자동 테스트 생성 및 실행 (JUnit5)
-- Gradle을 통한 Stub 배포 및 공유
-- 타입 안전한 Contract 작성 (Kotlin 타입 시스템 활용)
+- 도메인별 Avro 스키마 정의 (`.avsc`)
+- SAGA 패턴 이벤트 스키마 관리
+- 보상 트랜잭션(Compensation) 스키마 정의
+- 스키마 버전 관리 (Git)
 
 **장점:**
-- API 변경 시 Breaking Change 사전 감지
-- Producer-Consumer 간 계약 불일치 방지
-- 통합 테스트 없이도 서비스 간 호환성 검증
-- 문서화와 테스트의 동기화
+- 단일 진실 공급원(Single Source of Truth)
+- 스키마 진화(Schema Evolution) 추적
+- 타입 안전성 보장
+- Breaking Change 사전 감지
 
-### 2. Choreography Saga 패턴의 이벤트 흐름 문서화
+### 2. Java Class 생성 및 배포
 
-Choreography 방식의 Saga 패턴에서 Kafka를 통해 비동기적으로 전달되는 이벤트 흐름을 시각화하고 문서화합니다.
+**Avro 스키마로부터 Java class를 자동 생성하고 배포합니다.**
 
 **주요 기능:**
-- 비즈니스 플로우별 이벤트 체인 문서화
-- Kafka 토픽 및 Avro 스키마 명세
+- Gradle Avro Plugin을 통한 Java class 생성 (SpecificRecord)
+- JitPack을 통한 artifact 배포
+- Producer/Consumer 서비스에서 의존성으로 추가 가능
+- Kotlin 프로젝트에서도 사용 가능
+- Confluent Kafka Avro Serializer 지원
+
+**장점:**
+- 수동 DTO 작성 불필요
+- Producer-Consumer 간 타입 일치 보장
+- IDE 자동완성 및 타입 체크
+- 직렬화/역직렬화 자동 처리
+- Kotlin interop 완벽 지원
+
+### 3. 이벤트 흐름 문서화
+
+**Choreography Saga 패턴의 이벤트 흐름을 시각화하고 문서화합니다.**
+
+**주요 기능:**
+- 비즈니스 플로우별 이벤트 시퀀스 문서화
+- Kafka 토픽 및 Partition Key 명세
 - 이벤트 발행/구독 관계 정의
-- 보상 트랜잭션(Compensation) 흐름 정의
-- Saga 패턴 실패 시나리오 및 처리 방안
+- SAGA 실패 시나리오 및 보상 트랜잭션 정의
 
 **장점:**
 - 분산 트랜잭션 흐름의 가시성 확보
 - 이벤트 기반 아키텍처의 복잡도 관리
-- Avro 스키마를 통한 타입 안정성
-- 장애 발생 시 디버깅 용이
 - 신규 개발자의 시스템 이해도 향상
+- 장애 발생 시 디버깅 용이
 
 ## 🏗️ 프로젝트 구조
 
 ```
-c4ang-contract-hub/  (단일 모듈 프로젝트)
+c4ang-contract-hub/
 │
-├── .github/
-│   └── workflows/                      # GitHub Actions CI/CD
-│       ├── pr-validation.yml           # PR 검증
-│       ├── branch-build.yml            # 브랜치 빌드
-│       └── release.yml                 # 릴리스 배포
+├── src/main/avro/              # Avro 스키마 정의
+│   ├── store/                  # Store 도메인 이벤트
+│   │   └── StoreDeleted.avsc
+│   ├── order/                  # Order 도메인 이벤트
+│   │   ├── OrderCreated.avsc
+│   │   ├── OrderConfirmed.avsc
+│   │   └── OrderCancelled.avsc
+│   ├── product/                # Product 도메인 이벤트
+│   │   └── StockReserved.avsc
+│   ├── payment/                # Payment 도메인 이벤트
+│   │   ├── PaymentCompleted.avsc
+│   │   ├── PaymentFailed.avsc
+│   │   └── PaymentCancelled.avsc
+│   ├── saga/                   # SAGA 패턴 이벤트
+│   │   ├── StockReservationFailed.avsc
+│   │   ├── StockConfirmationFailed.avsc
+│   │   ├── OrderConfirmationCompensate.avsc
+│   │   ├── PaymentCompletionCompensate.avsc
+│   │   └── SagaTracker.avsc
+│   ├── monitoring/             # 모니터링 이벤트
+│   │   └── StockSyncAlert.avsc
+│   └── analytics/              # 분석 이벤트
+│       └── DailyStatistics.avsc
 │
-├── src/
-│   ├── main/
-│   │   ├── kotlin/                    # 메인 소스 코드
-│   │   ├── resources/                 # 리소스 파일
-│   │   └── avro/                      # Avro 스키마 정의
-│   │       ├── common/                # 공통 스키마
-│   │       │   └── EventMetadata.avsc
-│   │       └── events/                # 이벤트 스키마
-│   │           ├── OrderCreatedEvent.avsc
-│   │           ├── PaymentCompletedEvent.avsc
-│   │           └── ...
-│   │
-│   ├── test/
-│   │   ├── kotlin/                    # 테스트 코드
-│   │   │   └── com/c4ang/contract/
-│   │   │       └── BaseContractTest.kt
-│   │   └── resources/                 # 테스트 리소스
-│   │
-│   └── contractTest/                  # Contract 전용 source set
-│       ├── kotlin/                    # Contract 테스트 코드 (향후)
-│       └── resources/
-│           └── contracts/             # Spring Cloud Contract 명세
-│               ├── README.md          # Contract 작성 가이드
-│               ├── order-service/     # 주문 서비스 계약
-│               ├── payment-service/   # 결제 서비스 계약
-│               ├── inventory-service/ # 재고 서비스 계약
-│               ├── notification-service/ # 알림 서비스 계약
-│               └── messaging/         # Kafka 메시징 계약
+├── docs/                       # 상세 가이드
+│   ├── interface/              # 인터페이스 명세
+│   │   ├── kafka-event-specifications.md  # 이벤트 명세 (v2.0)
+│   │   └── kafka-event-sequence.md        # 이벤트 시퀀스 다이어그램
+│   └── publishing/             # 배포 가이드
+│       ├── jitpack-publishing-guide.md    # JitPack 배포
+│       └── avro-artifact-publishing.md    # Avro 클래스 배포
 │
-├── event-flows/                        # 이벤트 흐름 문서
-│   ├── README.md                      # 이벤트 흐름 가이드
-│   ├── order-saga/                    # 주문 Saga 플로우
-│   ├── payment-saga/                  # 결제 Saga 플로우 (예정)
-│   └── diagrams/                      # 플로우 다이어그램
-│
-├── docs/                               # 상세 가이드라인
-│   ├── quick-start-guide.md           # 시작 가이드 + IDE 설정
-│   ├── jitpack-publishing-guide.md    # JitPack 배포 (토이 프로젝트)
-│   ├── avro-artifact-publishing.md    # Avro 클래스 배포 및 사용
-│   ├── avro-integration-strategy.md   # Avro 통합 전략
-│   └── gradle-buildSrc-guide.md       # buildSrc 가이드
-│
-├── buildSrc/                           # 빌드 스크립트
+├── buildSrc/                   # 빌드 스크립트
 │   └── src/main/kotlin/
-│       └── AvroDocGenerator.kt        # Avro 문서 자동 생성
+│       └── AvroDocGenerator.kt # Avro 문서 자동 생성
 │
 └── build/
-    └── generated-main-avro-java/      # Avro 생성 클래스
+    └── generated-main-avro-java/  # Avro 생성 Java 클래스
+        └── com/groom/ecommerce/
+            ├── order/event/avro/
+            │   └── OrderCreated.java
+            ├── payment/event/avro/
+            │   └── PaymentCompleted.java
+            ├── saga/event/avro/
+            │   └── SagaTracker.java
+            └── ...
 ```
 
 ## 🚀 시작하기
 
 ### 사전 요구사항
 
-- JDK 17 이상
-- Gradle 8.x
-- Spring Boot 3.x
+- JDK 21 이상
+- Gradle 8.5 이상
 
-### 설치 및 실행
+### 빌드 및 배포
 
 ```bash
-# 프로젝트 클론
-git clone <repository-url>
-cd c4ang-contract-hub
-
-# Avro 스키마로부터 Java 클래스 생성
+# 1. Avro 스키마로부터 Java 클래스 생성
 ./gradlew generateAvroJava
 
-# 의존성 설치 및 빌드
+# 2. 빌드
 ./gradlew build
 
-# Contract 테스트 실행
-./gradlew contractTest
-
-# Stub 생성 및 로컬 배포
+# 3. 로컬 Maven 저장소에 배포 (로컬 개발용)
 ./gradlew publishToMavenLocal
 ```
 
-### Avro 클래스 배포 (다른 서비스에서 사용)
-
-#### JitPack 배포 (토이 프로젝트 권장)
+### JitPack 배포
 
 ```bash
-# 1. build.gradle.kts에서 group 변경
-# group = "com.github.your-username"
-
-# 2. Git Tag 생성 및 Push
+# 1. Git Tag 생성 및 Push
 git tag v1.0.0
 git push origin v1.0.0
 
-# 3. JitPack 자동 빌드
+# 2. JitPack 자동 빌드
 # https://jitpack.io/#your-username/c4ang-contract-hub
-```
-
-#### 다른 서비스에서 사용 (Producer/Consumer)
-
-```kotlin
-// build.gradle.kts
-repositories {
-    maven { url = uri("https://jitpack.io") }
-}
-
-dependencies {
-    // Avro 이벤트 클래스 가져오기
-    implementation("com.github.your-username:c4ang-contract-hub:v1.0.0")
-}
-```
-
-```kotlin
-// Producer (Order Service)
-import com.c4ang.events.order.OrderCreatedEvent
-
-val event = OrderCreatedEvent.newBuilder()
-    .setOrderId("ORD-123")
-    .setCustomerId("CUST-001")
-    .build()
-
-kafkaTemplate.send("c4ang.order.created", orderId, event)
-```
-
-```kotlin
-// Consumer (Payment Service)
-import com.c4ang.events.order.OrderCreatedEvent
-
-@KafkaListener(topics = ["c4ang.order.created"])
-fun handleOrderCreated(event: OrderCreatedEvent) {
-    val orderId = event.getOrderId()
-    processPayment(orderId)
-}
 ```
 
 **상세 가이드**: [JitPack 배포 가이드](docs/publishing/jitpack-publishing-guide.md)
 
 ## 📖 사용 가이드
 
-### 1. Spring Cloud Contract 작성
+### Producer/Consumer 서비스에서 사용하기
 
-HTTP API의 Producer-Consumer 계약을 **Kotlin DSL**로 정의합니다.
+#### 1. 의존성 추가
 
-**빠른 시작:**
-1. `src/contractTest/resources/contracts/<service-name>` 디렉토리에 Kotlin Contract 파일 작성 (`.kts`)
-2. Contract 테스트 실행으로 검증
-3. Stub 생성 및 배포
+```kotlin
+// build.gradle.kts
 
-**상세 가이드**: [src/contractTest/resources/contracts/README.md](src/contractTest/resources/contracts/README.md)
+repositories {
+    maven { url = uri("https://jitpack.io") }
+    // 또는 로컬 개발 시
+    mavenLocal()
+}
 
-### 2. 이벤트 흐름 문서화
+dependencies {
+    // Avro 이벤트 클래스 가져오기
+    implementation("com.github.your-username:c4ang-contract-hub:v1.0.0")
 
-Kafka 기반 Saga 패턴의 이벤트 흐름을 문서화합니다.
+    // Kafka 및 Avro 의존성
+    implementation("org.springframework.kafka:spring-kafka")
+    implementation("io.confluent:kafka-avro-serializer:7.5.1")
+}
+```
 
-**빠른 시작:**
-1. `src/main/avro/events/` 에 Avro 스키마 정의
-2. `event-flows/<saga-name>` 에 플로우 문서 작성
-3. Kafka 토픽명 및 이벤트 명세 정의
+#### 2. Producer에서 이벤트 발행
 
-**상세 가이드**: [event-flows/README.md](event-flows/README.md)
+```kotlin
+// Order Service (Producer)
+import com.groom.ecommerce.order.event.avro.OrderCreated
+import org.springframework.kafka.core.KafkaTemplate
 
-### 3. Avro 스키마 개발
+@Service
+class OrderEventPublisher(
+    private val kafkaTemplate: KafkaTemplate<String, OrderCreated>
+) {
+    fun publishOrderCreated(order: Order) {
+        val event = OrderCreated.newBuilder()
+            .setEventId(UUID.randomUUID().toString())
+            .setEventTimestamp(System.currentTimeMillis())
+            .setOrderId(order.id)
+            .setCustomerId(order.customerId)
+            .setItems(order.items.map { /* ... */ })
+            .setCreatedAt(order.createdAt.toEpochMilli())
+            .build()
 
-**스키마 작성 후 Java 클래스 생성:**
+        kafkaTemplate.send("order.created", order.id, event)
+    }
+}
+```
+
+#### 3. Consumer에서 이벤트 구독
+
+```kotlin
+// Payment Service (Consumer)
+import com.groom.ecommerce.order.event.avro.OrderCreated
+import org.springframework.kafka.annotation.KafkaListener
+
+@Service
+class OrderEventConsumer {
+
+    @KafkaListener(topics = ["order.created"], groupId = "payment-service")
+    fun handleOrderCreated(event: OrderCreated) {
+        val orderId = event.getOrderId()
+        val customerId = event.getCustomerId()
+
+        // 결제 처리 로직
+        processPayment(orderId, customerId)
+    }
+}
+```
+
+### Avro 스키마 개발
+
+#### 1. 새로운 스키마 추가
+
 ```bash
+# 1. src/main/avro/{domain}/ 에 .avsc 파일 생성
+vi src/main/avro/order/OrderCreated.avsc
+
+# 2. 클래스 생성
 ./gradlew generateAvroJava
+
+# 3. 생성된 클래스 확인
+# build/generated-main-avro-java/com/groom/ecommerce/{domain}/event/avro/
 ```
 
-**생성된 클래스 위치:**
+#### 2. 스키마 예시
+
+```json
+{
+  "type": "record",
+  "name": "OrderCreated",
+  "namespace": "com.groom.ecommerce.order.event.avro",
+  "doc": "주문 생성 이벤트 - Order Creation Saga의 시작점",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string",
+      "doc": "이벤트 고유 ID (UUID) - 멱등성 보장"
+    },
+    {
+      "name": "eventTimestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "이벤트 발생 시각 (epoch millis)"
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "주문 ID (Partition Key)"
+    }
+  ]
+}
 ```
-build/generated-main-avro-java/com/c4ang/events/
+
+**상세 가이드**: [Avro 클래스 배포 가이드](docs/publishing/avro-artifact-publishing.md)
+
+### 이벤트 흐름 문서
+
+이벤트 기반 Saga 패턴의 전체 흐름은 다음 문서를 참고하세요:
+
+- **[Kafka 이벤트 명세 v2.0](docs/interface/kafka-event-specifications.md)** - 전체 이벤트 목록 및 상세 명세
+- **[Kafka 이벤트 시퀀스](docs/interface/kafka-event-sequence.md)** - 기능별 이벤트 흐름 다이어그램
+
+**주요 SAGA 흐름:**
+1. **주문 생성 Saga**: Order Created → Stock Reserved → Order Confirmed
+2. **결제 완료 Saga**: Payment Completed → Stock Confirmed
+3. **보상 트랜잭션**: 실패 시 역순 보상 이벤트 발행
+
+## 🔄 Spring Cloud Contract Test
+
+**Spring Cloud Contract Test는 각 서비스에서 수행합니다.**
+
+### 각 서비스에서 Contract Test 작성
+
+```kotlin
+// order-service/src/test/resources/contracts/produce_order_created.kts
+
+import org.springframework.cloud.contract.spec.ContractDsl.Companion.contract
+
+contract {
+    description = "주문 생성 시 OrderCreated 이벤트 발행"
+
+    input {
+        triggeredBy("createOrder()")
+    }
+
+    outputMessage {
+        sentTo("order.created")
+        body("""
+            {
+                "eventId": "${value(consumer(regex("[0-9a-f-]{36}")), producer("123e4567-e89b-12d3-a456-426614174000"))}",
+                "orderId": "ORD-123",
+                "customerId": "CUST-001"
+            }
+        """.trimIndent())
+        headers {
+            header("kafka_messageKey", "ORD-123")
+        }
+    }
+}
 ```
 
-**주요 이벤트 스키마:**
-- `OrderCreatedEvent` - 주문 생성
-- `PaymentCompletedEvent` - 결제 완료
-- `PaymentFailedEvent` - 결제 실패 (보상)
-- `InventoryReservedEvent` - 재고 예약
-- `InventoryReservationFailedEvent` - 재고 예약 실패 (보상)
-- `PaymentCancelledEvent` - 결제 취소 (보상)
+### Contract Test 실행
 
-### 4. Contract Test 실행
-
-**Contract 테스트 실행:**
 ```bash
-# Contract 테스트 실행
+# 각 서비스에서
 ./gradlew contractTest
 ```
 
-**Producer Stub 생성:**
-```bash
-# Producer Stub 생성
-./gradlew publishStubsToScm
-```
-
-**Consumer Stub 다운로드 및 테스트:**
-```bash
-# Consumer Stub 다운로드 및 테스트
-./gradlew copyContracts
-./gradlew test
-```
-
-**전체 워크플로우:**
-```bash
-# 1. Contract 작성 후 테스트
-./gradlew contractTest
-
-# 2. 테스트 성공 시 Stub 생성 및 로컬 배포
-./gradlew publishToMavenLocal
-
-# 3. Consumer 서비스에서 Stub 사용하여 테스트
-# (Consumer 프로젝트에서)
-./gradlew copyContracts
-./gradlew test
-```
+**이점:**
+- 각 서비스가 자신의 contract만 관리
+- c4ang-contract-hub는 스키마만 제공
+- 서비스별 독립적인 테스트 실행
 
 ## 🔄 CI/CD 및 버전 관리
 
@@ -282,130 +335,64 @@ build/generated-main-avro-java/com/c4ang/events/
 
 이 프로젝트는 GitHub Actions를 통해 자동 빌드 및 배포를 수행합니다.
 
-| Workflow | 트리거 | 동작 | Badge |
-|----------|--------|------|-------|
-| **PR Validation** | PR 생성/업데이트 | 빌드 + 테스트 | ![PR Validation](https://github.com/groom/c4ang-contract-hub/workflows/PR%20Validation/badge.svg) |
-| **Branch Build** | develop/feature Push | 빌드 + 테스트 + JitPack 준비 | ![Branch Build](https://github.com/groom/c4ang-contract-hub/workflows/Branch%20Build/badge.svg) |
-| **Release** | Tag Push (v*) | 빌드 + 테스트 + GitHub Release | ![Release](https://github.com/groom/c4ang-contract-hub/workflows/Release/badge.svg) |
+**Workflow:**
+1. **PR 검증** (`pr-validation.yml`)
+   - Avro 스키마 유효성 검증
+   - 빌드 테스트
+   - 생성된 클래스 확인
 
-### 브랜치별 버전 전략
+2. **브랜치 빌드** (`branch-build.yml`)
+   - main/develop 브랜치 push 시 자동 빌드
+   - Avro 클래스 생성 확인
 
-**JitPack Branch 기반 버전 관리**를 사용합니다:
+3. **릴리스 배포** (`release.yml`)
+   - Git Tag 생성 시 자동 실행
+   - JitPack 배포
 
-```bash
-# Production (main)
-git tag v1.0.0
-git push origin v1.0.0
-# → JitPack: 1.0.0
+### 버전 관리 전략
 
-# Development (develop)
-git push origin develop
-# → JitPack: develop-SNAPSHOT
+- **Semantic Versioning**: `v{major}.{minor}.{patch}`
+- **Git Tag 기반 배포**: `v1.0.0`, `v1.1.0`, etc.
+- **Breaking Change**: Major 버전 증가 시 명시
 
-# Feature (feature/user-auth)
-git push origin feature/user-auth
-# → JitPack: feature-user-auth-SNAPSHOT
-```
+## 📚 관련 문서
 
-**Consumer/Producer에서 환경별 버전 사용:**
+### 인터페이스 명세
+- [Kafka 이벤트 명세 v2.0](docs/interface/kafka-event-specifications.md)
+- [Kafka 이벤트 시퀀스](docs/interface/kafka-event-sequence.md)
 
-```kotlin
-dependencies {
-    // Production
-    implementation("com.github.groom:c4ang-contract-hub:1.0.0")
+### 배포 가이드
+- [JitPack 배포 가이드](docs/publishing/jitpack-publishing-guide.md)
+- [Avro Artifact 배포 가이드](docs/publishing/avro-artifact-publishing.md)
 
-    // Development
-    // implementation("com.github.groom:c4ang-contract-hub:develop-SNAPSHOT")
+## 🤝 기여하기
 
-    // Feature Test
-    // implementation("com.github.groom:c4ang-contract-hub:feature-user-auth-SNAPSHOT")
-}
-```
+### 새로운 이벤트 추가 프로세스
 
-**상세 가이드**: [버전 관리 전략](docs/versioning-strategy.md)
+1. **스키마 작성**
+   - `src/main/avro/{domain}/` 에 `.avsc` 파일 추가
+   - 네이밍: `{EventName}.avsc` (PascalCase)
+   - namespace: `com.groom.ecommerce.{domain}.event.avro`
 
-### 릴리스 프로세스
+2. **문서 업데이트**
+   - `docs/interface/kafka-event-specifications.md` 에 이벤트 명세 추가
+   - 필요 시 `kafka-event-sequence.md` 에 시퀀스 다이어그램 추가
 
-```bash
-# 1. develop에서 기능 개발 및 테스트
-git checkout develop
-# ... 개발 ...
+3. **빌드 및 테스트**
+   ```bash
+   ./gradlew generateAvroJava
+   ./gradlew build
+   ```
 
-# 2. main으로 머지
-git checkout main
-git merge develop
+4. **PR 생성**
+   - 변경 사항 설명
+   - Breaking Change 여부 명시
+   - 영향받는 서비스 목록
 
-# 3. 버전 태그 생성 및 Push
-git tag v1.0.0
-git push origin v1.0.0
+## 📝 License
 
-# 4. GitHub Actions가 자동으로:
-#    - 빌드 및 테스트 실행
-#    - GitHub Release 생성
-#    - JitPack 빌드 트리거
-```
+This project is licensed under the MIT License.
 
-## 🔧 개발 워크플로우
+## 📧 Contact
 
-### HTTP API Contract
-1. **Contract 정의**: Producer 팀이 API Contract 작성 (Kotlin DSL `.kts`)
-   - 위치: `src/contractTest/resources/contracts/<service-name>/`
-2. **Stub 생성**: Contract로부터 Stub 자동 생성
-3. **Consumer 개발**: Consumer 팀이 Stub을 사용하여 독립적 개발
-4. **Contract 검증**: Producer의 실제 구현이 Contract를 만족하는지 테스트
-5. **Stub 배포**: Maven/Gradle Repository에 Stub 배포
-
-### Kafka 이벤트
-1. **Avro 스키마 정의**: `src/main/avro/events/` 에 스키마 작성
-2. **Java 클래스 생성**: Gradle 플러그인으로 자동 생성
-3. **이벤트 문서화**: Saga 플로우 및 토픽 명세 작성
-4. **Schema Registry 등록**: 스키마 버전 관리
-5. **이벤트 구현**: Producer/Consumer 구현 및 테스트
-
-## 📚 문서
-
-### 시작하기
-- **[Quick Start Guide](docs/quick-start-guide.md)** ⭐ - 프로젝트 사용법, 워크플로우, IDE 설정
-- **[버전 관리 전략](docs/versioning-strategy.md)** 🔄 - Git Flow 브랜치 전략 및 JitPack 배포 가이드
-- **[JitPack 배포 가이드](docs/publishing/jitpack-publishing-guide.md)** 🚀 - 토이 프로젝트를 위한 무료 배포 방법
-- **[Avro Artifact 배포 가이드](docs/publishing/avro-artifact-publishing.md)** - 다른 서비스에서 Avro 클래스 사용하기
-- **[Avro 통합 전략](docs/avro-integration-strategy.md)** - Avro 스키마 활용 및 문서 자동화 전략
-- **[Gradle buildSrc 가이드](docs/gradle-buildSrc-guide.md)** - buildSrc를 활용한 커스텀 빌드 로직 구현
-
-### 작성 가이드
-- **[Contract 작성 가이드](src/contractTest/resources/contracts/README.md)** - Spring Cloud Contract 작성 방법 및 예시
-- **[이벤트 흐름 가이드](event-flows/README.md)** - Kafka/Avro 기반 이벤트 흐름 문서화
-- **[주문 Saga 플로우](event-flows/order-saga/README.md)** - 주문 생성부터 완료까지의 전체 플로우
-
-### 자동 생성 문서
-- **[이벤트 명세](docs/generated/event-specifications.md)** - Avro 스키마로부터 자동 생성된 전체 이벤트 명세
-
-### 외부 문서
-- [Spring Cloud Contract 공식 문서](https://spring.io/projects/spring-cloud-contract)
-- [Apache Kafka 문서](https://kafka.apache.org/documentation/)
-- [Apache Avro 문서](https://avro.apache.org/docs/current/)
-- [Saga Pattern 가이드](https://microservices.io/patterns/data/saga.html)
-
-## 🤝 기여 방법
-
-### HTTP API Contract 추가
-1. `src/contractTest/resources/contracts/<service-name>/` 디렉토리 생성
-2. Kotlin DSL로 Contract 작성 (`.kts` 파일)
-3. 테스트 실행 및 검증
-4. Pull Request 제출
-
-### 이벤트 Saga 플로우 추가
-1. `src/main/avro/events/` 에 Avro 스키마 정의
-2. `event-flows/<saga-name>/` 디렉토리 생성
-3. README.md에 플로우 문서 작성 (Mermaid 다이어그램 포함)
-4. Kafka 토픽명 및 이벤트 명세 정의
-5. Pull Request 제출
-
-### 주의사항
-- Contract 변경 시 관련 팀과 사전 협의
-- Avro 스키마 변경 시 하위 호환성 검토
-- 보상 트랜잭션을 포함한 실패 시나리오 문서화 필수
-
-## 📄 라이선스
-
-Copyright (c) 2025 C4ang Team
+프로젝트 관련 문의: [GitHub Issues](https://github.com/GroomC4/c4ang-contract-hub/issues)

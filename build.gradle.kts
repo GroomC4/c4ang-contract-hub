@@ -1,9 +1,6 @@
 plugins {
     java
     kotlin("jvm") version "1.9.21"
-    id("org.springframework.boot") version "3.2.0"
-    id("io.spring.dependency-management") version "1.1.4"
-    id("org.springframework.cloud.contract") version "4.1.0"
     id("com.github.davidmc24.gradle.plugin.avro") version "1.9.1"
     id("maven-publish")
     idea
@@ -16,7 +13,12 @@ group = "com.c4ang"  // 로컬 개발용
 version = "1.0.0-SNAPSHOT"
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+kotlin {
+    jvmToolchain(21)
 }
 
 repositories {
@@ -28,52 +30,14 @@ repositories {
 }
 
 dependencies {
-    // Spring Cloud Contract
-    testImplementation("org.springframework.cloud:spring-cloud-starter-contract-verifier")
-    testImplementation("org.springframework.cloud:spring-cloud-starter-contract-stub-runner")
-
-    // Contract DSL 의존성 (IDE에서 .kts 파일 인식을 위해 필요)
-    implementation("org.springframework.cloud:spring-cloud-contract-spec-kotlin")
-
-    // Spring Boot
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlin:kotlin-scripting-jvm")
 
-    // Kafka
-    implementation("org.springframework.kafka:spring-kafka")
-    testImplementation("org.springframework.kafka:spring-kafka-test")
-
-    // Avro
+    // Avro - 이벤트 스키마 및 직렬화
     implementation("org.apache.avro:avro:1.11.3")
     implementation("io.confluent:kafka-avro-serializer:7.5.1")
     implementation("io.confluent:kafka-schema-registry-client:7.5.1")
-
-    // Test
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("io.rest-assured:rest-assured")
-    testImplementation("io.rest-assured:json-path")
-    testImplementation("io.rest-assured:xml-path")
-}
-
-dependencyManagement {
-    imports {
-        mavenBom("org.springframework.cloud:spring-cloud-dependencies:2023.0.0")
-    }
-}
-
-// Spring Cloud Contract 플러그인이 자동 생성한 contractTest source set 사용
-
-contracts {
-    testFramework.set(org.springframework.cloud.contract.verifier.config.TestFramework.JUNIT5)
-    testMode.set(org.springframework.cloud.contract.verifier.config.TestMode.EXPLICIT)
-    baseClassForTests.set("com.c4ang.contract.BaseContractTest")
-    // Spring Cloud Contract 플러그인은 기본적으로 src/contractTest/resources/contracts를 사용
-    contractsDslDir.set(file("src/contractTest/resources/contracts"))
 }
 
 avro {
@@ -84,13 +48,6 @@ avro {
     setStringType("String")
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
-}
-
-tasks.named("contractTest") {
-    dependsOn("test")
-}
 
 // Avro 문서 자동 생성 태스크
 tasks.register<AvroDocGenerator>("generateAvroEventDocs") {
@@ -129,10 +86,7 @@ publishing {
 // IntelliJ IDEA 설정
 idea {
     module {
-        // 생성된 파일들을 소스 디렉토리로 인식
+        // Avro 플러그인이 생성한 Java class를 소스 디렉토리로 인식
         generatedSourceDirs.add(file("build/generated-main-avro-java"))
-
-        // Spring Cloud Contract가 생성한 테스트 소스도 인식
-        generatedSourceDirs.add(file("build/generated-test-sources/contracts"))
     }
 }
