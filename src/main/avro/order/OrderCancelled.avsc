@@ -1,0 +1,36 @@
+{
+  "type": "record",
+  "name": "OrderCancelled",
+  "namespace": "com.groom.ecommerce.order.event.avro",
+  "doc": "주문 취소 이벤트 - Product Service가 재고 복원 처리",
+  "fields": [
+    {"name": "eventId", "type": "string", "doc": "이벤트 고유 ID (UUID)"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "orderId", "type": "string", "doc": "취소된 주문 ID"},
+    {"name": "userId", "type": "string"},
+    {
+      "name": "items",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "CancelledOrderItem",
+          "fields": [
+            {"name": "productId", "type": "string"},
+            {"name": "quantity", "type": "int", "doc": "복원할 재고 수량"}
+          ]
+        }
+      }
+    },
+    {
+      "name": "cancellationReason",
+      "type": {
+        "type": "enum",
+        "name": "CancellationReason",
+        "symbols": ["PAYMENT_TIMEOUT", "USER_REQUESTED", "STOCK_UNAVAILABLE", "SYSTEM_ERROR"]
+      },
+      "doc": "취소 사유"
+    },
+    {"name": "cancelledAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}

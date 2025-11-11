@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "name": "PaymentCancelled",
+  "namespace": "com.groom.ecommerce.payment.event.avro",
+  "doc": "결제 취소 이벤트 - Order Service가 주문 상태 업데이트",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "paymentId", "type": "string"},
+    {"name": "orderId", "type": "string", "doc": "취소된 주문 ID"},
+    {"name": "userId", "type": "string"},
+    {
+      "name": "cancellationReason",
+      "type": {
+        "type": "enum",
+        "name": "PaymentCancellationReason",
+        "symbols": ["STOCK_UNAVAILABLE", "ADMIN_CANCEL", "USER_CANCEL", "SYSTEM_ERROR"]
+      },
+      "doc": "취소 사유"
+    },
+    {"name": "cancelledAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}

@@ -195,7 +195,7 @@ fun handleOrderCreated(event: OrderCreatedEvent) {
 }
 ```
 
-**상세 가이드**: [JitPack 배포 가이드](docs/jitpack-publishing-guide.md)
+**상세 가이드**: [JitPack 배포 가이드](docs/publishing/jitpack-publishing-guide.md)
 
 ## 📖 사용 가이드
 
@@ -332,8 +332,8 @@ git push origin v1.0.0
 ### 시작하기
 - **[Quick Start Guide](docs/quick-start-guide.md)** ⭐ - 프로젝트 사용법, 워크플로우, IDE 설정
 - **[버전 관리 전략](docs/versioning-strategy.md)** 🔄 - Git Flow 브랜치 전략 및 JitPack 배포 가이드
-- **[JitPack 배포 가이드](docs/jitpack-publishing-guide.md)** 🚀 - 토이 프로젝트를 위한 무료 배포 방법
-- **[Avro Artifact 배포 가이드](docs/avro-artifact-publishing.md)** - 다른 서비스에서 Avro 클래스 사용하기
+- **[JitPack 배포 가이드](docs/publishing/jitpack-publishing-guide.md)** 🚀 - 토이 프로젝트를 위한 무료 배포 방법
+- **[Avro Artifact 배포 가이드](docs/publishing/avro-artifact-publishing.md)** - 다른 서비스에서 Avro 클래스 사용하기
 - **[Avro 통합 전략](docs/avro-integration-strategy.md)** - Avro 스키마 활용 및 문서 자동화 전략
 - **[Gradle buildSrc 가이드](docs/gradle-buildSrc-guide.md)** - buildSrc를 활용한 커스텀 빌드 로직 구현
 

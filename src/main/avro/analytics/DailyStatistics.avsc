@@ -1,0 +1,49 @@
+{
+  "type": "record",
+  "name": "DailyStatistics",
+  "namespace": "com.groom.ecommerce.analytics.event.avro",
+  "doc": "일일 통계 리포트 이벤트 - Analytics/Notification Service가 처리",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "date", "type": "string", "doc": "통계 날짜 (YYYY-MM-DD)"},
+    {"name": "totalOrders", "type": "int", "doc": "총 주문 건수"},
+    {
+      "name": "totalSales",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 15,
+        "scale": 2
+      },
+      "doc": "총 매출액"
+    },
+    {
+      "name": "avgOrderAmount",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 10,
+        "scale": 2
+      },
+      "doc": "평균 주문 금액"
+    },
+    {
+      "name": "topProducts",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "TopProduct",
+          "fields": [
+            {"name": "productId", "type": "string"},
+            {"name": "productName", "type": "string"},
+            {"name": "totalSold", "type": "int", "doc": "판매 수량"}
+          ]
+        }
+      },
+      "doc": "인기 상품 Top 10"
+    },
+    {"name": "generatedAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}

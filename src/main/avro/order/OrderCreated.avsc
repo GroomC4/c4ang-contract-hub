@@ -1,0 +1,46 @@
+{
+  "type": "record",
+  "name": "OrderCreated",
+  "namespace": "com.groom.ecommerce.order.event.avro",
+  "doc": "주문 생성 이벤트 - Product Service가 재고 예약 처리",
+  "fields": [
+    {"name": "eventId", "type": "string", "doc": "이벤트 고유 ID (UUID) - 멱등성 보장"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "orderId", "type": "string", "doc": "주문 ID (파티션 키)"},
+    {"name": "userId", "type": "string"},
+    {"name": "storeId", "type": "string"},
+    {
+      "name": "items",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "OrderItem",
+          "fields": [
+            {"name": "productId", "type": "string"},
+            {"name": "quantity", "type": "int"},
+            {
+              "name": "unitPrice",
+              "type": {
+                "type": "bytes",
+                "logicalType": "decimal",
+                "precision": 10,
+                "scale": 2
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "totalAmount",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 10,
+        "scale": 2
+      }
+    },
+    {"name": "createdAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}

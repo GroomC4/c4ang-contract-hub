@@ -1,0 +1,33 @@
+{
+  "type": "record",
+  "name": "StockSyncAlert",
+  "namespace": "com.groom.ecommerce.monitoring.event.avro",
+  "doc": "재고 불일치 알림 이벤트 - Notification Service가 Slack/PagerDuty 알림 발송",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "productId", "type": "string"},
+    {"name": "dbStock", "type": "int", "doc": "DB 재고 (신뢰 데이터)"},
+    {"name": "redisStock", "type": "int", "doc": "Redis 재고 (불일치 발견)"},
+    {"name": "discrepancy", "type": "int", "doc": "불일치 수량 (dbStock - redisStock)"},
+    {
+      "name": "action",
+      "type": {
+        "type": "enum",
+        "name": "SyncAction",
+        "symbols": ["REDIS_RESTORED", "MANUAL_REVIEW_REQUIRED"]
+      },
+      "doc": "조치 내용"
+    },
+    {
+      "name": "severity",
+      "type": {
+        "type": "enum",
+        "name": "AlertSeverity",
+        "symbols": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+      },
+      "default": "MEDIUM"
+    },
+    {"name": "detectedAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}
