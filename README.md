@@ -241,6 +241,41 @@ build/generated-main-avro-java/com/c4ang/events/
 - `InventoryReservationFailedEvent` - 재고 예약 실패 (보상)
 - `PaymentCancelledEvent` - 결제 취소 (보상)
 
+### 4. Contract Test 실행
+
+**Contract 테스트 실행:**
+```bash
+# Contract 테스트 실행
+./gradlew contractTest
+```
+
+**Producer Stub 생성:**
+```bash
+# Producer Stub 생성
+./gradlew publishStubsToScm
+```
+
+**Consumer Stub 다운로드 및 테스트:**
+```bash
+# Consumer Stub 다운로드 및 테스트
+./gradlew copyContracts
+./gradlew test
+```
+
+**전체 워크플로우:**
+```bash
+# 1. Contract 작성 후 테스트
+./gradlew contractTest
+
+# 2. 테스트 성공 시 Stub 생성 및 로컬 배포
+./gradlew publishToMavenLocal
+
+# 3. Consumer 서비스에서 Stub 사용하여 테스트
+# (Consumer 프로젝트에서)
+./gradlew copyContracts
+./gradlew test
+```
+
 ## 🔄 CI/CD 및 버전 관리
 
 ### GitHub Actions 자동화
