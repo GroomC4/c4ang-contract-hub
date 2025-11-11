@@ -1,8 +1,8 @@
 {
   "type": "record",
   "name": "StockReservationFailed",
-  "namespace": "com.groom.ecommerce.product.event.avro",
-  "doc": "재고 예약 실패 이벤트 - Order Service가 보상 트랜잭션 실행",
+  "namespace": "com.groom.ecommerce.saga.event.avro",
+  "doc": "SAGA 재고 예약 실패 이벤트 - Order Service가 보상 트랜잭션 실행",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

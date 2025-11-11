@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "PaymentInitializationFailed",
+  "namespace": "com.groom.ecommerce.saga.event.avro",
+  "doc": "SAGA 결제 대기 생성 실패 이벤트 - Order Service가 보상 트랜잭션 실행",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "orderId", "type": "string"},
+    {"name": "failureReason", "type": "string"},
+    {"name": "failedAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}

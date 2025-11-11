@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "OrderCreationCompensate",
+  "namespace": "com.groom.ecommerce.saga.event.avro",
+  "doc": "SAGA 주문 생성 보상 이벤트 - 재고 예약 실패 시 주문 취소",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "orderId", "type": "string"},
+    {"name": "compensationReason", "type": "string", "doc": "보상 트랜잭션 사유"},
+    {"name": "compensatedAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}

@@ -1,8 +1,8 @@
 {
   "type": "record",
-  "name": "StockConfirmFailed",
-  "namespace": "com.groom.ecommerce.order.event.avro",
-  "doc": "재고 확정 실패 이벤트 - Payment 보상 트랜잭션",
+  "name": "StockConfirmationFailed",
+  "namespace": "com.groom.ecommerce.saga.event.avro",
+  "doc": "SAGA 재고 확정 실패 이벤트 - Payment Service가 보상 트랜잭션 실행",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
