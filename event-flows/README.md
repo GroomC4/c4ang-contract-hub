@@ -1,449 +1,238 @@
-# 이벤트 흐름 문서화 가이드
+# Event Flows
+
+이벤트 기반 MSA의 기능별 이벤트 흐름을 정리한 문서입니다.
+
+## 📋 목차
+
+- [개요](#개요)
+- [전체 시나리오 플로우차트](#전체-시나리오-플로우차트)
+- [기능별 이벤트 플로우](#기능별-이벤트-플로우)
+- [이벤트 스키마 참조](#이벤트-스키마-참조)
+
+---
 
 ## 개요
 
-이 디렉토리는 C4ang MSA 시스템의 Choreography Saga 패턴 이벤트 흐름을 문서화합니다. Kafka를 통해 비동기적으로 전달되는 이벤트들의 흐름을 시각화하고 명세를 관리합니다.
+이 디렉토리는 **기능 단위**로 이벤트 흐름을 정리합니다. 각 기능별로 성공/실패 케이스에 대한 시퀀스 다이어그램과 상태 전이도를 제공합니다.
 
-## 기술 스택
+**문서 구조:**
+- 각 기능별 서브 디렉토리
+- 케이스별 상세 시퀀스 다이어그램 (`.md` 파일)
+- `README.md`: 전체 시나리오 분기 플로우차트
 
-- **메시지 브로커**: Apache Kafka
-- **직렬화**: Apache Avro
-- **스키마 레지스트리**: Confluent Schema Registry
-- **패턴**: Choreography Saga Pattern
+**이벤트 명세:**
+- 이벤트 필드 상세 정보는 생략하고, **Avro 스키마 파일**을 직접 참조합니다.
+- 각 문서에서 관련 Avro 스키마로 링크를 제공합니다.
 
-## 디렉토리 구조
+---
 
+## 전체 시나리오 플로우차트
+
+```mermaid
+graph TB
+    Start([시작]) --> Decision{기능 선택}
+
+    Decision -->|주문 생성| OrderCreation[주문 생성 SAGA]
+    Decision -->|결제 처리| PaymentProcessing[결제 처리 SAGA]
+    Decision -->|매장 관리| StoreManagement[매장 관리]
+    Decision -->|스케줄 작업| ScheduledJobs[스케줄 작업]
+
+    %% 주문 생성 플로우
+    OrderCreation --> OrderCreated[주문 접수]
+    OrderCreated --> StockCheck{재고 확인}
+    StockCheck -->|재고 충분| StockReserved[재고 예약 성공]
+    StockCheck -->|재고 부족| StockFailed[재고 부족]
+    StockReserved --> OrderConfirmed[주문 확정]
+    OrderConfirmed --> PaymentWait[결제 대기]
+    StockFailed --> OrderCancelled1[주문 취소]
+
+    %% 결제 처리 플로우
+    PaymentProcessing --> PaymentAttempt{결제 시도}
+    PaymentAttempt -->|성공| PaymentCompleted[결제 완료]
+    PaymentAttempt -->|실패| PaymentFailed[결제 실패]
+    PaymentCompleted --> StockConfirm{재고 확정}
+    StockConfirm -->|성공| StockConfirmed[재고 확정 성공]
+    StockConfirm -->|실패| StockConfirmFailed[재고 확정 실패]
+    StockConfirmed --> OrderComplete[주문 완료]
+    StockConfirmFailed --> PaymentRefund[결제 환불]
+    PaymentRefund --> OrderCancelled2[주문 취소]
+    PaymentFailed --> OrderCancelled3[주문 취소]
+
+    %% 매장 관리 플로우
+    StoreManagement --> StoreDecision{작업 선택}
+    StoreDecision -->|생성| StoreCreate[매장 생성<br/>동기 HTTP]
+    StoreDecision -->|삭제| StoreDelete[매장 삭제<br/>비동기]
+    StoreCreate --> RoleCheck{역할 검증}
+    RoleCheck -->|OWNER| StoreCreated[매장 생성 완료]
+    RoleCheck -->|NOT OWNER| StoreForbidden[403 Forbidden]
+    StoreDelete --> StoreSoftDelete[Soft Delete]
+    StoreSoftDelete --> ProductsDisabled[연관 상품 비활성화]
+
+    %% 스케줄 작업 플로우
+    ScheduledJobs --> ScheduleDecision{작업 선택}
+    ScheduleDecision -->|주문 만료| OrderExpiration[주문 만료 처리]
+    ScheduleDecision -->|재고 동기화| StockSync[재고 동기화]
+    ScheduleDecision -->|일일 통계| DailyStats[일일 통계 집계]
+
+    %% 종료 노드
+    OrderComplete --> End1([완료])
+    OrderCancelled1 --> End2([취소])
+    OrderCancelled2 --> End3([취소])
+    OrderCancelled3 --> End4([취소])
+    StoreCreated --> End5([완료])
+    StoreForbidden --> End6([실패])
+    ProductsDisabled --> End7([완료])
+    OrderExpiration --> End8([완료])
+    StockSync --> End9([완료])
+    DailyStats --> End10([완료])
+
+    %% 스타일
+    classDef successClass fill:#d4edda,stroke:#28a745,stroke-width:2px
+    classDef failureClass fill:#f8d7da,stroke:#dc3545,stroke-width:2px
+    classDef processingClass fill:#fff3cd,stroke:#ffc107,stroke-width:2px
+    classDef decisionClass fill:#d1ecf1,stroke:#17a2b8,stroke-width:2px
+
+    class OrderComplete,StockConfirmed,StoreCreated,ProductsDisabled,End1,End5,End7,End8,End9,End10 successClass
+    class OrderCancelled1,OrderCancelled2,OrderCancelled3,StockFailed,PaymentFailed,StockConfirmFailed,StoreForbidden,End2,End3,End4,End6 failureClass
+    class OrderCreated,StockReserved,OrderConfirmed,PaymentWait,PaymentCompleted,StoreCreate,StoreDelete,OrderExpiration,StockSync,DailyStats processingClass
+    class Decision,StockCheck,PaymentAttempt,StockConfirm,StoreDecision,RoleCheck,ScheduleDecision decisionClass
 ```
-event-flows/
-├── README.md                      # 이 문서
-├── order-saga/                    # 주문 Saga 플로우
-│   └── README.md                 # 주문 Saga 상세 문서
-├── payment-saga/                  # 결제 Saga 플로우 (예정)
-└── diagrams/                      # 공통 다이어그램
-```
 
-## Kafka 토픽 명명 규칙
+---
 
-모든 이벤트는 다음 명명 규칙을 따르는 Kafka 토픽으로 발행됩니다:
+## 기능별 이벤트 플로우
 
-**형식**: `c4ang.{domain}.{event-action}`
+### 1. 주문 생성 (Order Creation)
 
-**예시**:
-- `c4ang.order.created` - 주문 생성 이벤트
-- `c4ang.payment.completed` - 결제 완료 이벤트
-- `c4ang.payment.failed` - 결제 실패 이벤트 (보상)
-- `c4ang.inventory.reserved` - 재고 예약 이벤트
-- `c4ang.inventory.reservation-failed` - 재고 예약 실패 이벤트 (보상)
+주문 접수부터 재고 예약, 주문 확정, 결제 대기까지의 완전 비동기 SAGA 패턴.
 
-## Avro 스키마 관리
+**케이스:**
+- [정상 플로우](./order-creation/success.md) - 주문 생성 → 재고 예약 → 주문 확정 → 결제 대기
+- [재고 부족 실패](./order-creation/stock-reservation-failed.md) - 재고 부족으로 인한 주문 취소
 
-### 스키마 위치
+**주요 이벤트:**
+- `order.created` - 주문 생성
+- `stock.reserved` - 재고 예약 성공
+- `stock.reservation.failed` - 재고 예약 실패
+- `order.confirmed` - 주문 확정
 
-모든 이벤트의 Avro 스키마는 `src/main/avro/events/` 디렉토리에 위치합니다.
+[📂 Order Creation 디렉토리](./order-creation/)
+
+---
+
+### 2. 결제 처리 (Payment Processing)
+
+결제 완료 후 재고 확정까지의 SAGA 패턴. 결제 실패 및 재고 확정 실패 시 보상 트랜잭션 포함.
+
+**케이스:**
+- [결제 성공 플로우](./payment-processing/payment-success.md) - 결제 완료 → 재고 확정 → 주문 완료
+- [결제 실패](./payment-processing/payment-failed.md) - 결제 실패로 인한 주문 취소
+- [재고 확정 실패](./payment-processing/stock-confirmation-failed.md) - 재고 확정 실패로 인한 결제 환불
+
+**주요 이벤트:**
+- `payment.completed` - 결제 완료
+- `payment.failed` - 결제 실패
+- `stock.confirmed` - 재고 확정
+- `stock.confirmation.failed` - 재고 확정 실패
+- `payment.cancelled` - 결제 취소 (환불)
+
+[📂 Payment Processing 디렉토리](./payment-processing/)
+
+---
+
+### 3. 매장 관리 (Store Management)
+
+매장 생성 및 삭제 시나리오. 매장 생성은 동기 HTTP, 삭제는 비동기 이벤트 처리.
+
+**케이스:**
+- [매장 생성](./store-management/create-store.md) - OWNER 역할 검증 후 매장 생성 (동기 HTTP)
+- [매장 삭제](./store-management/delete-store.md) - Soft Delete 후 연관 상품 비활성화 (비동기)
+
+**주요 이벤트:**
+- `store.deleted` - 매장 삭제
+
+[📂 Store Management 디렉토리](./store-management/)
+
+---
+
+### 4. 스케줄 작업 (Scheduled Jobs)
+
+주기적으로 실행되는 백그라운드 작업들.
+
+**케이스:**
+- [주문 만료 처리](./scheduled-jobs/order-expiration.md) - 5분 이상 결제되지 않은 주문 자동 취소
+- [재고 동기화](./scheduled-jobs/stock-sync.md) - Product Service와 Order Service 간 재고 데이터 정합성 검증
+- [일일 통계 집계](./scheduled-jobs/daily-statistics.md) - 매일 자정 판매 통계 집계 및 이벤트 발행
+
+**주요 이벤트:**
+- `order.expiration.notification` - 주문 만료 알림
+- `order.cancelled` - 주문 취소
+- `stock.sync.alert` - 재고 불일치 알림
+- `daily.statistics` - 일일 통계
+
+[📂 Scheduled Jobs 디렉토리](./scheduled-jobs/)
+
+---
+
+## 이벤트 스키마 참조
+
+모든 이벤트의 상세 스키마는 프로젝트의 **Avro 스키마 파일**을 참조하세요.
+
+### Avro 스키마 위치
 
 ```
 src/main/avro/
-├── common/
-│   └── EventMetadata.avsc         # 공통 메타데이터
-└── events/
-    ├── OrderCreatedEvent.avsc
-    ├── PaymentCompletedEvent.avsc
-    ├── PaymentFailedEvent.avsc
-    ├── InventoryReservedEvent.avsc
-    └── ...
+├── order/           # 주문 관련 이벤트
+├── payment/         # 결제 관련 이벤트
+├── product/         # 상품 관련 이벤트
+├── store/           # 매장 관련 이벤트
+├── saga/            # SAGA 보상 트랜잭션
+├── analytics/       # 분석 이벤트
+└── monitoring/      # 모니터링 이벤트
 ```
 
-### 스키마 구조
+### 스키마 파일 링크
 
-모든 이벤트는 공통 메타데이터를 포함합니다:
+각 이벤트 문서에서 관련 Avro 스키마 파일로 직접 링크를 제공합니다.
 
-```json
-{
-  "metadata": {
-    "eventId": "이벤트 고유 ID (UUID)",
-    "eventType": "이벤트 타입",
-    "timestamp": "발생 시각 (Epoch millis)",
-    "correlationId": "비즈니스 상관 ID",
-    "version": "스키마 버전",
-    "source": "발행 서비스명"
-  },
-  // 이벤트별 고유 필드들...
-}
-```
-
-### 스키마 버전 관리
-
-- **하위 호환성 유지**: 기존 필드 제거 금지, 필수 필드 추가 금지
-- **버전 업데이트**: `metadata.version` 필드로 관리
-- **Schema Registry**: Confluent Schema Registry를 통한 중앙 관리
-
-## 이벤트 흐름 문서 작성 가이드
-
-### 1. 새로운 Saga 플로우 추가
-
-```bash
-# 디렉토리 생성
-mkdir event-flows/{saga-name}
-
-# README.md 작성
-touch event-flows/{saga-name}/README.md
-```
-
-### 2. README.md 구조
-
-각 Saga의 README.md는 다음 구조를 따릅니다:
-
+**예시:**
 ```markdown
-# {Saga 이름} 플로우
-
-## 개요
-간단한 설명
-
-## 정상 플로우
-Mermaid 다이어그램으로 시각화
-
-## 실패 시나리오
-각 실패 케이스별 다이어그램
-
-## 이벤트 명세
-각 이벤트의 상세 스펙 (토픽, 스키마, 페이로드 예시)
-
-## 상태 전이도
-비즈니스 상태 변화
-
-## 정책
-- 타임아웃 정책
-- 재시도 정책
-- 멱등성 보장 방법
-
-## 모니터링 포인트
+**관련 이벤트:**
+- [`OrderCreated.avsc`](../src/main/avro/order/OrderCreated.avsc) - 주문 생성 이벤트
+- [`StockReserved.avsc`](../src/main/avro/product/StockReserved.avsc) - 재고 예약 이벤트
 ```
 
-### 3. Mermaid 다이어그램 작성
+### 자동 생성 문서
 
-#### Sequence Diagram (이벤트 흐름)
-
-```mermaid
-sequenceDiagram
-    participant OrderService
-    participant PaymentService
-    participant InventoryService
-
-    OrderService->>PaymentService: OrderCreatedEvent
-    Note right of OrderService: Topic: c4ang.order.created
-
-    PaymentService->>InventoryService: PaymentCompletedEvent
-    Note right of PaymentService: Topic: c4ang.payment.completed
-
-    InventoryService-->>PaymentService: InventoryReservationFailedEvent
-    Note right of InventoryService: 보상 트랜잭션
-```
-
-#### State Diagram (상태 전이)
-
-```mermaid
-stateDiagram-v2
-    [*] --> PendingPayment
-    PendingPayment --> PaymentCompleted: PaymentCompletedEvent
-    PendingPayment --> PaymentFailed: PaymentFailedEvent
-    PaymentCompleted --> InventoryReserved: InventoryReservedEvent
-    PaymentCompleted --> OutOfStock: InventoryReservationFailedEvent
-    InventoryReserved --> Completed
-    OutOfStock --> [*]
-    PaymentFailed --> [*]
-```
-
-### 4. 이벤트 명세 템플릿
-
-각 이벤트는 다음 정보를 포함해야 합니다:
-
-```markdown
-### {EventName}
-
-**발행자**: {Service Name}
-**구독자**: {Service Name}
-**Kafka 토픽**: `c4ang.{domain}.{action}`
-**Avro 스키마**: `src/main/avro/events/{EventName}.avsc`
-
-**페이로드** (Avro 직렬화):
-\`\`\`json
-{
-  "metadata": {
-    "eventId": "EVT-12345",
-    "eventType": "EventName",
-    "timestamp": 1704880800000,
-    "correlationId": "BUSINESS-ID",
-    "version": "1.0",
-    "source": "service-name"
-  },
-  // 이벤트별 필드...
-}
-\`\`\`
-
-**트리거 조건**:
-- 언제 이 이벤트가 발행되는가?
-
-**비즈니스 로직**:
-- 이벤트 발행 시 수행되는 작업
-
-**부작용 (Side Effects)**:
-- DB 변경
-- 외부 API 호출
-- 상태 변경
-
-**오류 처리**:
-- 실패 시 동작
-- 재시도 정책
-```
-
-## 보상 트랜잭션 (Compensation)
-
-### 보상 이벤트 정의
-
-실패 시나리오에서 발행되는 보상 이벤트:
-
-- `PaymentFailedEvent` - 결제 실패 시
-- `PaymentCancelledEvent` - 결제 취소 (환불)
-- `InventoryReservationFailedEvent` - 재고 예약 실패
-- `InventoryReleasedEvent` - 재고 예약 해제
-
-### 보상 트랜잭션 문서화
-
-```markdown
-## 보상 트랜잭션
-
-### 시나리오: 재고 부족
-
-1. **트리거**: InventoryReservationFailedEvent 발행
-2. **보상 액션**:
-   - PaymentService가 PaymentCancelledEvent 발행
-   - 결제 금액 환불 처리
-   - 주문 상태를 OUT_OF_STOCK으로 업데이트
-3. **최종 상태**: OUT_OF_STOCK
-4. **사용자 알림**: 재고 부족 안내 이메일/푸시
-```
-
-## 정책 정의
-
-### 타임아웃 정책
-
-각 Saga 단계별 타임아웃 설정:
-
-| 단계 | 타임아웃 | 초과 시 동작 |
-|------|----------|--------------|
-| 결제 대기 | 5분 | 자동 취소 |
-| 재고 예약 대기 | 3분 | 결제 환불 |
-| 전체 Saga | 10분 | 강제 종료 및 보상 |
-
-### 재시도 정책
-
-| 이벤트 | 재시도 횟수 | 간격 | 실패 시 |
-|--------|-------------|------|---------|
-| PaymentCompletedEvent | 3회 | 1분 | 주문 취소 |
-| InventoryReservedEvent | 2회 | 30초 | 결제 환불 |
-| NotificationEvent | 5회 | 2분 | 로깅만 (비즈니스 실패 X) |
-
-### 멱등성 보장
-
-모든 이벤트 핸들러는 `metadata.eventId`를 기반으로 중복 처리를 방지합니다:
-
-```java
-@KafkaListener(topics = "c4ang.payment.completed")
-public void handlePaymentCompleted(PaymentCompletedEvent event) {
-    String eventId = event.getMetadata().getEventId();
-
-    // 중복 체크
-    if (processedEventRepository.existsByEventId(eventId)) {
-        log.info("Duplicate event ignored: {}", eventId);
-        return;
-    }
-
-    // 비즈니스 로직 처리
-    processPayment(event);
-
-    // 처리 완료 기록
-    processedEventRepository.save(new ProcessedEvent(eventId));
-}
-```
-
-## Kafka Consumer 설정 예시
-
-### application.yml
-
-```yaml
-spring:
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      group-id: ${spring.application.name}
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
-      properties:
-        schema.registry.url: http://localhost:8081
-        specific.avro.reader: true
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
-      properties:
-        schema.registry.url: http://localhost:8081
-```
-
-### 이벤트 발행 예시
-
-```java
-@Service
-@RequiredArgsConstructor
-public class OrderEventPublisher {
-
-    private final KafkaTemplate<String, OrderCreatedEvent> kafkaTemplate;
-
-    public void publishOrderCreated(Order order) {
-        OrderCreatedEvent event = OrderCreatedEvent.newBuilder()
-            .setMetadata(EventMetadata.newBuilder()
-                .setEventId(UUID.randomUUID().toString())
-                .setEventType("OrderCreated")
-                .setTimestamp(System.currentTimeMillis())
-                .setCorrelationId(order.getOrderId())
-                .setVersion("1.0")
-                .setSource("order-service")
-                .build())
-            .setOrderId(order.getOrderId())
-            .setCustomerId(order.getCustomerId())
-            .setProductId(order.getProductId())
-            .setQuantity(order.getQuantity())
-            .setTotalAmount(order.getTotalAmount())
-            .setOrderStatus(OrderStatus.PENDING_PAYMENT)
-            .build();
-
-        kafkaTemplate.send("c4ang.order.created", order.getOrderId(), event);
-    }
-}
-```
-
-### 이벤트 구독 예시
-
-```java
-@Service
-@Slf4j
-public class PaymentEventListener {
-
-    @KafkaListener(topics = "c4ang.order.created", groupId = "payment-service")
-    public void handleOrderCreated(OrderCreatedEvent event) {
-        String orderId = event.getOrderId();
-        String eventId = event.getMetadata().getEventId();
-
-        log.info("Received OrderCreatedEvent: orderId={}, eventId={}", orderId, eventId);
-
-        // 멱등성 체크
-        if (isDuplicate(eventId)) {
-            return;
-        }
-
-        // 결제 처리 로직
-        processPayment(event);
-    }
-}
-```
-
-## 모니터링 및 관찰성
-
-### 메트릭
-
-각 Saga별로 다음 메트릭을 수집합니다:
-
-- `saga.{saga-name}.duration` - Saga 전체 소요 시간
-- `saga.{saga-name}.success_rate` - 성공률
-- `saga.{saga-name}.compensation_rate` - 보상 트랜잭션 발생률
-- `event.{event-name}.processing_time` - 이벤트 처리 시간
-- `event.{event-name}.lag` - Kafka Consumer Lag
-
-### 로깅
-
-구조화된 로깅 형식:
-
-```json
-{
-  "level": "INFO",
-  "timestamp": "2025-01-10T10:00:00Z",
-  "service": "payment-service",
-  "saga": "order-saga",
-  "correlationId": "ORD-12345",
-  "eventType": "PaymentCompletedEvent",
-  "eventId": "EVT-12346",
-  "message": "Payment completed successfully",
-  "duration_ms": 234
-}
-```
-
-### 알림
-
-다음 상황에서 알림 발송:
-
-- Saga 완료 시간이 평균 대비 2배 초과
-- 보상 트랜잭션 발생률 5% 초과
-- 특정 이벤트 처리 실패율 1% 초과
-- Consumer Lag이 임계값 초과
-
-## Avro 스키마 개발 워크플로우
-
-### 1. 스키마 정의
-
-`src/main/avro/events/{EventName}.avsc` 파일 생성
-
-### 2. 스키마 컴파일
+Gradle 태스크로 Avro 스키마에서 자동 생성되는 문서:
+- [`docs/generated/event-specifications.md`](../docs/generated/event-specifications.md)
 
 ```bash
-# Avro 플러그인이 자동으로 Java 클래스 생성
-./gradlew generateAvroJava
+./gradlew generateAvroEventDocs
 ```
 
-생성된 클래스 위치: `build/generated-main-avro-java/`
+---
 
-### 3. 스키마 등록
+## 관련 문서
 
-Schema Registry에 스키마 등록:
+- [Kafka 이벤트 명세](../docs/interface/kafka-event-specifications.md) - 전체 이벤트 상세 명세
+- [Kafka 이벤트 시퀀스](../docs/interface/kafka-event-sequence.md) - 서비스 간 통신 흐름 시각화
+- [README](../README.md) - 프로젝트 메인 문서
 
-```bash
-# Schema Registry에 스키마 등록
-curl -X POST http://localhost:8081/subjects/c4ang.order.created-value/versions \
-  -H "Content-Type: application/vnd.schemaregistry.v1+json" \
-  -d @src/main/avro/events/OrderCreatedEvent.avsc
-```
+---
 
-### 4. 스키마 호환성 검증
+## 컨벤션
 
-```bash
-# 호환성 체크
-curl -X POST http://localhost:8081/compatibility/subjects/c4ang.order.created-value/versions/latest \
-  -H "Content-Type: application/vnd.schemaregistry.v1+json" \
-  -d @src/main/avro/events/OrderCreatedEvent.avsc
-```
+### 파일 명명 규칙
+- `README.md`: 해당 기능의 전체 플로우차트
+- `success.md`: 정상 플로우
+- `{failure-case}.md`: 실패 케이스 (예: `payment-failed.md`)
 
-## 체크리스트
-
-새로운 Saga 플로우 추가 시:
-
-- [ ] Saga 디렉토리 생성 (`event-flows/{saga-name}/`)
-- [ ] README.md 작성 (정상/실패 플로우, 이벤트 명세)
-- [ ] Mermaid 다이어그램 작성
-- [ ] Avro 스키마 정의 (`src/main/avro/events/`)
-- [ ] Kafka 토픽명 정의 (`c4ang.{domain}.{action}`)
-- [ ] 타임아웃 정책 정의
-- [ ] 재시도 정책 정의
-- [ ] 멱등성 보장 방법 문서화
-- [ ] 보상 트랜잭션 정의
-- [ ] 모니터링 포인트 정의
-
-## 참고 자료
-
-- [Saga Pattern](https://microservices.io/patterns/data/saga.html)
-- [Apache Kafka](https://kafka.apache.org/documentation/)
-- [Apache Avro](https://avro.apache.org/docs/current/)
-- [Confluent Schema Registry](https://docs.confluent.io/platform/current/schema-registry/index.html)
-- [Event-Driven Architecture](https://martinfowler.com/articles/201701-event-driven.html)
-- [이벤트 플로우 가이드라인](../docs/event-flow-guidelines.md)
-
-## 기존 Saga 플로우
-
-- [주문 Saga](./order-saga/README.md) - 주문 생성부터 완료까지의 전체 플로우
+### 문서 구조
+각 시나리오 문서는 다음 섹션을 포함합니다:
+1. **개요**: 시나리오 설명
+2. **시퀀스 다이어그램**: Mermaid 기반 시각화
+3. **관련 이벤트**: Avro 스키마 파일 링크
+4. **상태 전이**: 상태 변화 다이어그램
+5. **주요 포인트**: 핵심 특징 및 주의사항
+6. **타임아웃/재시도 정책**: 시간 제약 및 재시도 규칙
