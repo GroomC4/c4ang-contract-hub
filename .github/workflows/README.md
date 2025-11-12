@@ -321,8 +321,8 @@ feature/B: OrderCreated에 "priority" 필드 추가
 
 | 워크플로우 | 필요 권한 |
 |-----------|----------|
-| Branch Build | 기본 권한 |
-| PR Validation | 기본 권한 + PR 코멘트 (자동 부여) |
+| Branch Build | 기본 권한 (`contents: read`) |
+| PR Validation | `contents: read`, `pull-requests: write` (PR 코멘트 작성) |
 | Release | `contents: write` (Release 생성) |
 | Documentation Deploy | `contents: write` (문서 커밋) |
 
@@ -402,6 +402,21 @@ https://jitpack.io/com/github/GroomC4/c4ang-contract-hub/{version}/build.log
 **해결 방법**:
 - 수동으로 diff 확인
 - 향후 Avro Schema Validator 도입 고려
+
+### PR 코멘트 권한 에러
+
+**에러 메시지**:
+```
+RequestError [HttpError]: Resource not accessible by integration
+status: 403
+```
+
+**원인**: PR에 코멘트를 작성할 권한이 없음
+
+**해결 방법**:
+- ✅ 이미 `pr-validation.yml`에 `pull-requests: write` 권한 추가됨
+- ⚠️ Fork된 저장소에서 PR 생성 시에는 보안상 제한될 수 있음
+- 외부 기여자 PR의 경우 수동으로 워크플로우 승인 필요
 
 ---
 

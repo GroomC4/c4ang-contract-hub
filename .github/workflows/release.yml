@@ -58,6 +58,90 @@ jobs:
           JAVA_COUNT=$(find build/generated-main-avro-java -name "*.java" | wc -l)
           echo "count=$JAVA_COUNT" >> $GITHUB_OUTPUT
 
+      - name: Extract schema changes
+        id: schema_changes
+        run: |
+          echo "🔍 Extracting schema changes since last release..."
+
+          # 이전 태그 찾기
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "ℹ️ No previous tag found. This is the first release."
+            echo "has_previous=false" >> $GITHUB_OUTPUT
+            echo "changes<<EOF" >> $GITHUB_OUTPUT
+            echo "ℹ️ 첫 번째 릴리스입니다." >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "📌 Comparing with previous tag: $PREVIOUS_TAG"
+          echo "has_previous=true" >> $GITHUB_OUTPUT
+          echo "previous_tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
+          # 변경된 스키마 파일 찾기
+          CHANGED_SCHEMAS=$(git diff --name-status $PREVIOUS_TAG...HEAD -- 'src/main/avro/**/*.avsc' | sort)
+
+          if [ -z "$CHANGED_SCHEMAS" ]; then
+            echo "ℹ️ No schema changes in this release"
+            echo "changes<<EOF" >> $GITHUB_OUTPUT
+            echo "ℹ️ 스키마 변경사항이 없습니다." >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # 변경 타입별로 분류
+          ADDED=$(echo "$CHANGED_SCHEMAS" | grep "^A" | sed 's/^A\t//' || true)
+          MODIFIED=$(echo "$CHANGED_SCHEMAS" | grep "^M" | sed 's/^M\t//' || true)
+          DELETED=$(echo "$CHANGED_SCHEMAS" | grep "^D" | sed 's/^D\t//' || true)
+
+          # Breaking Change 체크
+          BREAKING_FOUND=false
+          BREAKING_DETAILS=""
+
+          for schema in $(echo "$CHANGED_SCHEMAS" | grep "^M" | sed 's/^M\t//' || true); do
+            if git diff $PREVIOUS_TAG...HEAD -- "$schema" | grep -E '^\-.*"name".*:|^\-.*"type".*:' > /dev/null; then
+              BREAKING_FOUND=true
+              BREAKING_DETAILS="${BREAKING_DETAILS}\n- \`${schema}\` (필드 삭제 또는 타입 변경)"
+            fi
+          done
+
+          # 변경사항 요약 생성
+          CHANGES_SUMMARY=""
+
+          if [ -n "$ADDED" ]; then
+            CHANGES_SUMMARY="${CHANGES_SUMMARY}\n#### ✨ 새로운 스키마\n"
+            for file in $ADDED; do
+              CHANGES_SUMMARY="${CHANGES_SUMMARY}\n- \`${file}\`"
+            done
+          fi
+
+          if [ -n "$MODIFIED" ]; then
+            CHANGES_SUMMARY="${CHANGES_SUMMARY}\n\n#### 🔄 수정된 스키마\n"
+            for file in $MODIFIED; do
+              CHANGES_SUMMARY="${CHANGES_SUMMARY}\n- \`${file}\`"
+            done
+          fi
+
+          if [ -n "$DELETED" ]; then
+            CHANGES_SUMMARY="${CHANGES_SUMMARY}\n\n#### ❌ 삭제된 스키마\n"
+            for file in $DELETED; do
+              CHANGES_SUMMARY="${CHANGES_SUMMARY}\n- \`${file}\`"
+            done
+          fi
+
+          if [ "$BREAKING_FOUND" = true ]; then
+            CHANGES_SUMMARY="${CHANGES_SUMMARY}\n\n#### ⚠️ Breaking Changes\n"
+            CHANGES_SUMMARY="${CHANGES_SUMMARY}${BREAKING_DETAILS}"
+            CHANGES_SUMMARY="${CHANGES_SUMMARY}\n\n**주의**: 이 릴리스는 호환성이 깨지는 변경을 포함합니다. Consumer 서비스 업데이트가 필요할 수 있습니다."
+          fi
+
+          echo "changes<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$CHANGES_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "breaking_found=$BREAKING_FOUND" >> $GITHUB_OUTPUT
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -75,7 +159,13 @@ jobs:
 
           이벤트 기반 MSA를 위한 Avro 스키마 및 이벤트 흐름 문서 관리 레포지토리
 
-          ### 📊 What's Included
+          ### 📝 이번 릴리스의 변경사항
+
+          ${{ steps.schema_changes.outputs.changes }}
+
+          ---
+
+          ### 📊 포함된 내용
 
           - **Avro Schemas**: ${{ steps.count_schemas.outputs.count }} schemas
           - **Generated Java Classes**: ${{ steps.count_classes.outputs.count }} classes

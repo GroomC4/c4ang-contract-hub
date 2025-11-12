@@ -1,0 +1,100 @@
+name: Documentation Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/main/avro/**/*.avsc'
+      - 'docs/interface/**'
+      - 'buildSrc/**'
+
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  deploy-docs:
+    name: Generate and Deploy Documentation
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # docs 커밋 권한
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 전체 히스토리
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Count Avro schemas
+        id: count_schemas
+        run: |
+          AVRO_COUNT=$(find src/main/avro -name "*.avsc" | wc -l)
+          echo "count=$AVRO_COUNT" >> $GITHUB_OUTPUT
+          echo "📋 Found $AVRO_COUNT Avro schema files"
+
+      - name: Generate Avro documentation
+        run: |
+          echo "📝 Generating Avro documentation..."
+          ./gradlew generateAvroEventDocs --no-daemon
+
+      - name: Check for documentation changes
+        id: check_changes
+        run: |
+          # docs/generated 디렉토리의 변경사항 확인
+          if git diff --quiet docs/generated/; then
+            echo "ℹ️ No documentation changes detected"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Documentation changes detected"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+
+            # 변경된 파일 목록
+            CHANGED_FILES=$(git diff --name-only docs/generated/)
+            echo "📝 Changed files:"
+            echo "$CHANGED_FILES"
+          fi
+
+      - name: Commit and push documentation
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add docs/generated/
+
+          git commit -m "docs: 자동 생성된 Avro 문서 업데이트
+
+          - Avro 스키마 ${{ steps.count_schemas.outputs.count }}개 기준
+          - GitHub Actions에 의해 자동 생성됨
+
+          🤖 Generated with GitHub Actions
+          "
+
+          git push
+
+      - name: Display summary
+        run: |
+          if [ "${{ steps.check_changes.outputs.has_changes }}" = "true" ]; then
+            echo "✅ Documentation updated and committed!"
+            echo ""
+            echo "📊 Summary:"
+            echo "  - Avro Schemas: ${{ steps.count_schemas.outputs.count }}"
+            echo "  - Documentation: docs/generated/"
+            echo "  - Commit: Pushed to main branch"
+          else
+            echo "ℹ️ No documentation changes detected"
+            echo ""
+            echo "📊 Summary:"
+            echo "  - Avro Schemas: ${{ steps.count_schemas.outputs.count }}"
+            echo "  - Documentation: Up to date"
+          fi
