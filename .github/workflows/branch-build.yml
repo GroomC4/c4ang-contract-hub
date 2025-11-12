@@ -41,11 +41,17 @@ jobs:
       - name: Generate Avro documentation
         run: ./gradlew generateAvroEventDocs --no-daemon
 
+      - name: Sanitize branch name for artifact
+        id: sanitize
+        run: |
+          BRANCH_NAME=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
       - name: Upload build artifacts
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts-${{ github.ref_name }}
+          name: build-artifacts-${{ steps.sanitize.outputs.branch_name }}
           path: |
             build/libs/*.jar
             build/generated-main-avro-java/
