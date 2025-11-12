@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "name": "PaymentCompletionCompensate",
+  "namespace": "com.groom.ecommerce.saga.event.avro",
+  "doc": "SAGA 결제 완료 보상 이벤트 - 재고 확정 실패 시 결제 취소",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "paymentId", "type": "string"},
+    {"name": "orderId", "type": "string"},
+    {
+      "name": "refundAmount",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 10,
+        "scale": 2
+      },
+      "doc": "환불 금액"
+    },
+    {"name": "compensationReason", "type": "string", "doc": "재고 확정 실패"},
+    {"name": "compensatedAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}

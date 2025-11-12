@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "name": "StockReservationCompensate",
+  "namespace": "com.groom.ecommerce.saga.event.avro",
+  "doc": "SAGA 재고 예약 보상 이벤트 - 재고 복원 처리",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "orderId", "type": "string"},
+    {
+      "name": "items",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "StockCompensationItem",
+          "fields": [
+            {"name": "productId", "type": "string"},
+            {"name": "quantity", "type": "int", "doc": "복원할 재고 수량"}
+          ]
+        }
+      }
+    },
+    {"name": "compensationReason", "type": "string"},
+    {"name": "compensatedAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}

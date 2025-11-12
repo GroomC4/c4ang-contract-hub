@@ -1,0 +1,33 @@
+{
+  "type": "record",
+  "name": "SagaTracker",
+  "namespace": "com.groom.ecommerce.saga.event.avro",
+  "doc": "SAGA 흐름 추적 및 감사 이벤트 - 모든 Saga 단계 기록",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "sagaId", "type": "string", "doc": "Saga 고유 ID (주문 ID 또는 별도 Saga ID)"},
+    {
+      "name": "sagaType",
+      "type": {
+        "type": "enum",
+        "name": "SagaType",
+        "symbols": ["ORDER_CREATION", "PAYMENT_COMPLETION"]
+      },
+      "doc": "Saga 유형"
+    },
+    {"name": "step", "type": "string", "doc": "현재 Saga 단계 (예: STOCK_RESERVATION, PAYMENT_INITIALIZATION)"},
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "SagaStatus",
+        "symbols": ["STARTED", "IN_PROGRESS", "COMPLETED", "FAILED", "COMPENSATED"]
+      },
+      "doc": "Saga 상태"
+    },
+    {"name": "orderId", "type": "string"},
+    {"name": "metadata", "type": ["null", "string"], "default": null, "doc": "추가 메타데이터 (JSON)"},
+    {"name": "recordedAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}

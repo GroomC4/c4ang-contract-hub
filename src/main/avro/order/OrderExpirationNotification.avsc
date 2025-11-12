@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "OrderExpirationNotification",
+  "namespace": "com.groom.ecommerce.order.event.avro",
+  "doc": "주문 만료 알림 이벤트 - Notification Service가 고객 알림 발송",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "orderId", "type": "string"},
+    {"name": "userId", "type": "string", "doc": "알림 수신 대상"},
+    {
+      "name": "expirationReason",
+      "type": "string",
+      "default": "결제 시간 초과 (30분)",
+      "doc": "만료 사유"
+    },
+    {"name": "expiredAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}

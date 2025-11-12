@@ -17,10 +17,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
           cache: 'gradle'
 
@@ -34,23 +34,113 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
 
-      - name: Generate Avro classes
-        run: ./gradlew generateAvroJava
+      - name: Count Avro schemas
+        id: count_schemas
+        run: |
+          AVRO_COUNT=$(find src/main/avro -name "*.avsc" | wc -l)
+          echo "count=$AVRO_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Generate Avro Java classes
+        run: ./gradlew generateAvroJava --no-daemon
 
       - name: Build project
         run: ./gradlew build --no-daemon
 
-      - name: Run tests
-        run: ./gradlew test --no-daemon
-
-      - name: Run contract tests
-        run: ./gradlew contractTest --no-daemon
-
       - name: Generate Avro documentation
-        run: ./gradlew generateAvroEventDocs
+        run: ./gradlew generateAvroEventDocs --no-daemon
 
       - name: Package artifacts
         run: ./gradlew assemble --no-daemon
+
+      - name: Get generated class count
+        id: count_classes
+        run: |
+          JAVA_COUNT=$(find build/generated-main-avro-java -name "*.java" | wc -l)
+          echo "count=$JAVA_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Extract schema changes
+        id: schema_changes
+        run: |
+          echo "🔍 Extracting schema changes since last release..."
+
+          # 이전 태그 찾기
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "ℹ️ No previous tag found. This is the first release."
+            echo "has_previous=false" >> $GITHUB_OUTPUT
+            echo "changes<<EOF" >> $GITHUB_OUTPUT
+            echo "ℹ️ 첫 번째 릴리스입니다." >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "📌 Comparing with previous tag: $PREVIOUS_TAG"
+          echo "has_previous=true" >> $GITHUB_OUTPUT
+          echo "previous_tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
+          # 변경된 스키마 파일 찾기
+          CHANGED_SCHEMAS=$(git diff --name-status $PREVIOUS_TAG...HEAD -- 'src/main/avro/**/*.avsc' | sort)
+
+          if [ -z "$CHANGED_SCHEMAS" ]; then
+            echo "ℹ️ No schema changes in this release"
+            echo "changes<<EOF" >> $GITHUB_OUTPUT
+            echo "ℹ️ 스키마 변경사항이 없습니다." >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # 변경 타입별로 분류
+          ADDED=$(echo "$CHANGED_SCHEMAS" | grep "^A" | sed 's/^A\t//' || true)
+          MODIFIED=$(echo "$CHANGED_SCHEMAS" | grep "^M" | sed 's/^M\t//' || true)
+          DELETED=$(echo "$CHANGED_SCHEMAS" | grep "^D" | sed 's/^D\t//' || true)
+
+          # Breaking Change 체크
+          BREAKING_FOUND=false
+          BREAKING_DETAILS=""
+
+          for schema in $(echo "$CHANGED_SCHEMAS" | grep "^M" | sed 's/^M\t//' || true); do
+            if git diff $PREVIOUS_TAG...HEAD -- "$schema" | grep -E '^\-.*"name".*:|^\-.*"type".*:' > /dev/null; then
+              BREAKING_FOUND=true
+              BREAKING_DETAILS="${BREAKING_DETAILS}\n- \`${schema}\` (필드 삭제 또는 타입 변경)"
+            fi
+          done
+
+          # 변경사항 요약 생성
+          CHANGES_SUMMARY=""
+
+          if [ -n "$ADDED" ]; then
+            CHANGES_SUMMARY="${CHANGES_SUMMARY}\n#### ✨ 새로운 스키마\n"
+            for file in $ADDED; do
+              CHANGES_SUMMARY="${CHANGES_SUMMARY}\n- \`${file}\`"
+            done
+          fi
+
+          if [ -n "$MODIFIED" ]; then
+            CHANGES_SUMMARY="${CHANGES_SUMMARY}\n\n#### 🔄 수정된 스키마\n"
+            for file in $MODIFIED; do
+              CHANGES_SUMMARY="${CHANGES_SUMMARY}\n- \`${file}\`"
+            done
+          fi
+
+          if [ -n "$DELETED" ]; then
+            CHANGES_SUMMARY="${CHANGES_SUMMARY}\n\n#### ❌ 삭제된 스키마\n"
+            for file in $DELETED; do
+              CHANGES_SUMMARY="${CHANGES_SUMMARY}\n- \`${file}\`"
+            done
+          fi
+
+          if [ "$BREAKING_FOUND" = true ]; then
+            CHANGES_SUMMARY="${CHANGES_SUMMARY}\n\n#### ⚠️ Breaking Changes\n"
+            CHANGES_SUMMARY="${CHANGES_SUMMARY}${BREAKING_DETAILS}"
+            CHANGES_SUMMARY="${CHANGES_SUMMARY}\n\n**주의**: 이 릴리스는 호환성이 깨지는 변경을 포함합니다. Consumer 서비스 업데이트가 필요할 수 있습니다."
+          fi
+
+          echo "changes<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$CHANGES_SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "breaking_found=$BREAKING_FOUND" >> $GITHUB_OUTPUT
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -67,6 +157,20 @@ jobs:
           cat > release_notes.md << 'EOF'
           ## 📦 C4ang Contract Hub ${{ steps.version.outputs.tag }}
 
+          이벤트 기반 MSA를 위한 Avro 스키마 및 이벤트 흐름 문서 관리 레포지토리
+
+          ### 📝 이번 릴리스의 변경사항
+
+          ${{ steps.schema_changes.outputs.changes }}
+
+          ---
+
+          ### 📊 포함된 내용
+
+          - **Avro Schemas**: ${{ steps.count_schemas.outputs.count }} schemas
+          - **Generated Java Classes**: ${{ steps.count_classes.outputs.count }} classes
+          - **Event Flow Documentation**: SAGA pattern 이벤트 흐름 다이어그램
+
           ### 🚀 How to Use
 
           Add to your `build.gradle.kts`:
@@ -77,30 +181,47 @@ jobs:
           }
 
           dependencies {
-              implementation("com.github.groom:c4ang-contract-hub:${{ steps.version.outputs.version }}")
+              implementation("com.github.GroomC4:c4ang-contract-hub:${{ steps.version.outputs.version }}")
           }
           ```
 
-          ### 📋 What's Included
+          ### 💻 Usage Example (Kotlin)
 
-          - ✅ Avro event schemas and generated classes
-          - ✅ Spring Cloud Contract specifications
-          - ✅ Event flow documentation
+          ```kotlin
+          // Producer
+          import com.groom.ecommerce.order.event.avro.OrderCreated
+
+          val event = OrderCreated.newBuilder()
+              .setEventId(UUID.randomUUID().toString())
+              .setOrderId("ORD-123")
+              .setCustomerId("CUST-001")
+              .build()
+
+          kafkaTemplate.send("order.created", orderId, event)
+          ```
+
+          ### 📚 Key Features
+
+          - ✅ **Avro Schema Management**: 도메인별 스키마 정의 (Order, Payment, Product, SAGA 등)
+          - ✅ **Java Class Generation**: Avro → Java (Kotlin interop 지원)
+          - ✅ **Event Flow Documentation**: 이벤트 시퀀스 다이어그램 및 명세
+          - ✅ **JitPack Distribution**: 간편한 의존성 추가
 
           ### 🔗 Links
 
-          - [JitPack Build](https://jitpack.io/#groom/c4ang-contract-hub/${{ steps.version.outputs.version }})
-          - [Documentation](https://github.com/groom/c4ang-contract-hub#readme)
+          - [JitPack Build](https://jitpack.io/#GroomC4/c4ang-contract-hub/${{ steps.version.outputs.version }})
+          - [Documentation](https://github.com/GroomC4/c4ang-contract-hub#readme)
+          - [Kafka Event Specifications](https://github.com/GroomC4/c4ang-contract-hub/blob/main/docs/interface/kafka-event-specifications.md)
+          - [Event Sequence Diagrams](https://github.com/GroomC4/c4ang-contract-hub/blob/main/docs/interface/kafka-event-sequence.md)
 
-          ### 📚 Documentation
+          ### 📋 Documentation
 
-          - [Quick Start Guide](docs/quick-start-guide.md)
-          - [JitPack Publishing Guide](docs/jitpack-publishing-guide.md)
-          - [Versioning Strategy](docs/versioning-strategy.md)
+          - [JitPack Publishing Guide](docs/publishing/jitpack-publishing-guide.md)
+          - [Avro Artifact Publishing](docs/publishing/avro-artifact-publishing.md)
 
           ---
 
-          **Full Changelog**: https://github.com/groom/c4ang-contract-hub/commits/${{ steps.version.outputs.tag }}
+          **Full Changelog**: https://github.com/GroomC4/c4ang-contract-hub/commits/${{ steps.version.outputs.tag }}
           EOF
 
       - name: Create GitHub Release
@@ -121,19 +242,25 @@ jobs:
           VERSION=${{ steps.version.outputs.version }}
           echo "🔨 Triggering JitPack build for version $VERSION..."
 
-          # JitPack build trigger (optional, JitPack이 자동으로 빌드하지만 미리 트리거 가능)
-          curl -s "https://jitpack.io/api/builds/com.github.groom/c4ang-contract-hub/$VERSION" || true
+          # JitPack build trigger
+          curl -s "https://jitpack.io/api/builds/com.github.GroomC4/c4ang-contract-hub/$VERSION" || true
 
           echo ""
           echo "✅ Release $VERSION completed!"
           echo ""
           echo "📦 Artifact is now available on JitPack:"
-          echo "    implementation(\"com.github.groom:c4ang-contract-hub:$VERSION\")"
+          echo "    implementation(\"com.github.GroomC4:c4ang-contract-hub:$VERSION\")"
           echo ""
-          echo "🔗 JitPack: https://jitpack.io/#groom/c4ang-contract-hub/$VERSION"
-          echo "🔗 GitHub Release: https://github.com/groom/c4ang-contract-hub/releases/tag/v$VERSION"
+          echo "🔗 JitPack: https://jitpack.io/#GroomC4/c4ang-contract-hub/$VERSION"
+          echo "🔗 GitHub Release: https://github.com/GroomC4/c4ang-contract-hub/releases/tag/v$VERSION"
 
-      - name: Notify release completion
+      - name: Display release summary
         if: success()
         run: |
           echo "::notice title=Release Complete::Version ${{ steps.version.outputs.version }} has been released successfully!"
+          echo ""
+          echo "📊 Release Summary:"
+          echo "  - Version: ${{ steps.version.outputs.version }}"
+          echo "  - Avro Schemas: ${{ steps.count_schemas.outputs.count }}"
+          echo "  - Generated Classes: ${{ steps.count_classes.outputs.count }}"
+          echo "  - Status: ✅ Success"

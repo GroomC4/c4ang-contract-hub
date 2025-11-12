@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "name": "OrderConfirmationCompensate",
+  "namespace": "com.groom.ecommerce.saga.event.avro",
+  "doc": "SAGA 주문 확정 보상 이벤트 - 결제 실패/초기화 실패 시 재고 복원",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "orderId", "type": "string"},
+    {
+      "name": "items",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "CompensationItem",
+          "fields": [
+            {"name": "productId", "type": "string"},
+            {"name": "quantity", "type": "int", "doc": "복원할 재고 수량"}
+          ]
+        }
+      }
+    },
+    {"name": "compensationReason", "type": "string", "doc": "결제 실패, 결제 대기 생성 실패 등"},
+    {"name": "compensatedAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}

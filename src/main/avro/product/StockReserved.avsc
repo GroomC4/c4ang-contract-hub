@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "name": "StockReserved",
+  "namespace": "com.groom.ecommerce.product.event.avro",
+  "doc": "재고 예약 성공 이벤트 - Order Service가 주문 확정 처리",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "orderId", "type": "string"},
+    {
+      "name": "reservedItems",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "ReservedItem",
+          "fields": [
+            {"name": "productId", "type": "string"},
+            {"name": "quantity", "type": "int"},
+            {"name": "reservedStock", "type": "int", "doc": "예약 후 남은 재고"}
+          ]
+        }
+      }
+    },
+    {"name": "reservedAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}

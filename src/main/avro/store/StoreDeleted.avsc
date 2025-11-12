@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "StoreDeleted",
+  "namespace": "com.groom.ecommerce.store.event.avro",
+  "doc": "스토어 삭제 이벤트 - Product Service가 연관 상품 처리",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "storeId", "type": "string", "doc": "삭제된 스토어 ID"},
+    {"name": "ownerId", "type": "string"},
+    {"name": "deletedAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}
