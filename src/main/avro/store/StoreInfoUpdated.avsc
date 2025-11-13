@@ -1,0 +1,62 @@
+{
+  "type": "record",
+  "name": "StoreInfoUpdated",
+  "namespace": "com.groom.ecommerce.store.event.avro",
+  "doc": "스토어 정보 변경 이벤트 - Product Service가 연관 상품의 비정규화된 스토어 정보 업데이트",
+  "fields": [
+    {"name": "eventId", "type": "string", "doc": "이벤트 고유 ID (UUID) - 멱등성 보장"},
+    {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "storeId", "type": "string", "doc": "변경된 스토어 ID (파티션 키)"},
+    {"name": "storeName", "type": "string", "doc": "스토어 이름"},
+    {"name": "storeStatus", "type": "string", "doc": "스토어 상태 (ACTIVE, INACTIVE, SUSPENDED, DELETED)"},
+    {
+      "name": "storeDescription",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "스토어 설명"
+    },
+    {
+      "name": "storePhone",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "스토어 전화번호"
+    },
+    {
+      "name": "storeAddress",
+      "type": ["null", {
+        "type": "record",
+        "name": "Address",
+        "fields": [
+          {"name": "street", "type": "string"},
+          {"name": "city", "type": "string"},
+          {"name": "state", "type": "string"},
+          {"name": "zipCode", "type": "string"},
+          {"name": "country", "type": "string"}
+        ]
+      }],
+      "default": null,
+      "doc": "스토어 주소"
+    },
+    {
+      "name": "businessHours",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "영업 시간 정보 (JSON 형식)"
+    },
+    {
+      "name": "storeImageUrl",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "스토어 이미지 URL"
+    },
+    {
+      "name": "updatedFields",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "doc": "변경된 필드 목록 (예: ['storeName', 'storePhone'])"
+    },
+    {"name": "updatedAt", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}
