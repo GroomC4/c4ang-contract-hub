@@ -1,0 +1,984 @@
+# MSA 리팩토링 통합 가이드
+# Spring Boot 마이크로서비스의 보안 및 아키텍처 개선을 위한 AI 참고 문서
+
+[metadata]
+version = "2.0.0"
+created_at = "2025-11-14"
+authors = ["@hayden-han", "Claude Code"]
+purpose = "MSA 환경에서 Istio 기반 보안 전환 및 Hexagonal Architecture 적용을 위한 통합 가이드"
+description = """
+이 문서는 두 가지 주요 리팩토링 작업을 위한 통합 가이드입니다:
+1. Spring Security 제거 및 Istio 헤더 기반 인증 전환
+2. Hexagonal Architecture (Ports and Adapters 패턴) 적용
+
+두 작업은 독립적으로 또는 순차적으로 진행할 수 있습니다.
+"""
+
+[metadata.frameworks]
+spring_boot = "3.x"
+spring_data_jpa = "3.x"
+kotlin = "1.9+"
+istio = "1.x"
+
+[metadata.architecture]
+current = "Layered Architecture with Spring Security"
+target = "Hexagonal Architecture with Istio-based Security"
+
+# =============================================================================
+# PART 1: Spring Security 제거 및 Istio 인증 전환
+# =============================================================================
+
+[security_removal]
+title = "Spring Security 제거 및 Istio 헤더 기반 인증 전환"
+priority = "High"
+estimated_effort = "4-8 hours"
+prerequisite = "Istio API Gateway 구성 완료"
+
+[security_removal.background]
+description = """
+MSA 환경에서 인증/인가 책임을 서비스에서 API Gateway로 이관합니다.
+- 기존: 각 서비스가 Spring Security로 JWT 검증 + 인가
+- 변경: Istio가 JWT 검증 + 인가, 서비스는 헤더만 읽음
+"""
+
+architecture_shift = """
+┌─────────────┐          ┌─────────────────┐          ┌──────────────┐
+│   Client    │──JWT────▶│  Istio Gateway  │──Header─▶│   Service    │
+│             │          │  (JWT 검증)      │          │ (비즈니스 로직)│
+└─────────────┘          └─────────────────┘          └──────────────┘
+                              │
+                              ├─ RequestAuthentication (JWT 검증)
+                              ├─ AuthorizationPolicy (인가)
+                              └─ X-User-Id, X-User-Role 헤더 주입
+"""
+
+important_notes = [
+    "JWT 발급 기능이 없는 서비스: 모든 JWT 코드 제거 가능",
+    "JWT 발급 기능이 있는 서비스(Auth): JwtTokenProvider는 유지, 검증 로직만 제거",
+    "Istio가 주입하는 헤더: X-User-Id, X-User-Role (프로젝트별 확인 필요)"
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 1: 프로젝트 분석
+# ─────────────────────────────────────────────────────────────────────────────
+
+[security_removal.phase1_analysis]
+title = "Phase 1: 프로젝트 분석"
+description = "현재 Spring Security 사용 현황 파악"
+
+[security_removal.phase1_analysis.commands]
+find_security_files = """
+find src/main -type d -name "security" -o -name "*Security*"
+find src/main -name "*Security*.kt" -o -name "*Jwt*.kt" -o -name "*Authentication*.kt"
+"""
+
+find_security_usage = """
+grep -r "SecurityContextHolder" src/main/
+grep -r "AuthenticationContext" src/main/
+grep -r "@PreAuthorize" src/main/
+grep -r "@Secured" src/main/
+"""
+
+find_dependencies = """
+grep -r "spring-boot-starter-security" build.gradle.kts
+grep -r "spring-security" build.gradle.kts
+grep -r "java-jwt" build.gradle.kts
+"""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 2: 제거 대상 파일
+# ─────────────────────────────────────────────────────────────────────────────
+
+[security_removal.phase2_target_files]
+title = "Phase 2: 제거할 파일 목록 작성"
+
+[security_removal.phase2_target_files.always_remove]
+description = "JWT 발급 기능 유무와 관계없이 항상 제거"
+files = [
+    "SecurityConfig.kt / WebSecurityConfig.kt",
+    "JwtAuthenticationFilter.kt / JwtFilter.kt",
+    "CustomAuthenticationEntryPoint.kt",
+    "CustomAccessDeniedHandler.kt",
+    "AuthenticationContext.kt (SecurityContext 래퍼)",
+]
+
+[security_removal.phase2_target_files.conditional_remove]
+description = "JWT 발급 기능이 없는 서비스만 제거"
+files = [
+    "JwtTokenProvider.kt (JWT 검증 로직 포함 시)",
+    "JwtProperties.kt (JWT 발급에 불필요할 경우)",
+    "JwtConfig.kt",
+]
+note = "Auth 서비스는 JWT 발급용 JwtTokenProvider 유지"
+
+[security_removal.phase2_target_files.keep_if_issuing_jwt]
+description = "JWT 발급 서비스(Auth)에서 유지할 파일"
+files = [
+    "JwtTokenProvider.kt (발급 기능만)",
+    "JwtProperties.kt (발급 설정)",
+]
+refactoring_note = "검증 메서드(validateToken 등)는 제거, 발급 메서드(generateToken)만 유지"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 3: Controller 수정
+# ─────────────────────────────────────────────────────────────────────────────
+
+[security_removal.phase3_controller]
+title = "Phase 3: Controller 수정 (Istio 헤더 기반)"
+
+[security_removal.phase3_controller.pattern1_direct_header]
+description = "패턴 1: @RequestHeader로 직접 추출"
+before = """
+@RestController
+class SomeController(
+    private val authenticationContext: AuthenticationContext,
+    private val someService: SomeService,
+) {
+    @GetMapping("/api/v1/resource")
+    fun getResource(): ResponseEntity<Response> {
+        val userId = authenticationContext.getCurrentUserId()
+        return ResponseEntity.ok(someService.get(userId))
+    }
+}
+"""
+after = """
+@RestController
+class SomeController(
+    private val someService: SomeService,
+) {
+    @GetMapping("/api/v1/resource")
+    fun getResource(
+        @RequestHeader("X-User-Id") userIdHeader: String
+    ): ResponseEntity<Response> {
+        val userId = UUID.fromString(userIdHeader)
+        return ResponseEntity.ok(someService.get(userId))
+    }
+}
+"""
+
+[security_removal.phase3_controller.pattern2_extractor_util]
+description = "패턴 2: IstioHeaderExtractor 유틸리티 사용 (권장)"
+before = """
+@RestController
+class SomeController(
+    private val authenticationContext: AuthenticationContext,
+    private val someService: SomeService,
+) {
+    @GetMapping("/api/v1/resource")
+    fun getResource(): ResponseEntity<Response> {
+        val userId = authenticationContext.getCurrentUserId()
+        val role = authenticationContext.getCurrentUserRole()
+        return ResponseEntity.ok(someService.get(userId, role))
+    }
+}
+"""
+after = """
+@RestController
+class SomeController(
+    private val istioHeaderExtractor: IstioHeaderExtractor,
+    private val someService: SomeService,
+) {
+    @GetMapping("/api/v1/resource")
+    fun getResource(request: HttpServletRequest): ResponseEntity<Response> {
+        val userId = istioHeaderExtractor.extractUserId(request)
+        val role = istioHeaderExtractor.extractUserRole(request)
+        return ResponseEntity.ok(someService.get(userId, role))
+    }
+}
+"""
+
+[security_removal.phase3_controller.search_commands]
+description = "수정 대상 Controller 검색"
+commands = [
+    "find src/main -name '*Controller.kt'",
+    "grep -r 'authenticationContext' src/main/kotlin/",
+    "grep -r 'SecurityContextHolder' src/main/kotlin/",
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 4: IstioHeaderExtractor 유틸리티
+# ─────────────────────────────────────────────────────────────────────────────
+
+[security_removal.phase4_utility]
+title = "Phase 4: IstioHeaderExtractor 유틸리티 생성"
+location = "common/util/IstioHeaderExtractor.kt"
+
+[security_removal.phase4_utility.code_template]
+language = "kotlin"
+code = """
+package com.groom.[domain].common.util
+
+import jakarta.servlet.http.HttpServletRequest
+import org.springframework.stereotype.Component
+import java.util.UUID
+
+/**
+ * Istio API Gateway가 주입한 인증 헤더를 추출하는 유틸리티
+ *
+ * Istio는 JWT 검증 후 다음 헤더를 주입합니다:
+ * - X-User-Id: 사용자 UUID
+ * - X-User-Role: 사용자 역할 (CUSTOMER, OWNER 등)
+ */
+@Component
+class IstioHeaderExtractor {
+    companion object {
+        const val USER_ID_HEADER = "X-User-Id"
+        const val USER_ROLE_HEADER = "X-User-Role"
+    }
+
+    /**
+     * Istio가 JWT 검증 후 주입한 사용자 ID를 추출합니다.
+     *
+     * @throws IllegalStateException 헤더가 없거나 형식이 잘못된 경우
+     */
+    fun extractUserId(request: HttpServletRequest): UUID {
+        val userId = request.getHeader(USER_ID_HEADER)
+            ?: throw IllegalStateException(
+                "$USER_ID_HEADER header not found. " +
+                "Request must pass through Istio API Gateway."
+            )
+
+        return try {
+            UUID.fromString(userId)
+        } catch (e: IllegalArgumentException) {
+            throw IllegalStateException(
+                "Invalid user ID format in $USER_ID_HEADER: $userId",
+                e
+            )
+        }
+    }
+
+    /**
+     * Istio가 JWT 검증 후 주입한 사용자 역할을 추출합니다.
+     */
+    fun extractUserRole(request: HttpServletRequest): String {
+        return request.getHeader(USER_ROLE_HEADER)
+            ?: throw IllegalStateException(
+                "$USER_ROLE_HEADER header not found. " +
+                "Request must pass through Istio API Gateway."
+            )
+    }
+}
+"""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 5-8: 나머지 단계
+# ─────────────────────────────────────────────────────────────────────────────
+
+[security_removal.phase5_dependencies]
+title = "Phase 5: build.gradle.kts 수정"
+description = "Spring Security 의존성 제거"
+remove = [
+    "implementation(\"org.springframework.boot:spring-boot-starter-security\")",
+    "testImplementation(\"org.springframework.security:spring-security-test\")",
+]
+conditional_remove = [
+    "implementation(\"com.auth0:java-jwt:4.4.0\")  # JWT 발급 서비스는 유지",
+]
+
+[security_removal.phase6_error_handler]
+title = "Phase 6: 에러 핸들러 추가"
+description = "Istio 헤더 누락 시 에러 처리"
+location = "common/exception/IstioHeaderExceptionHandler.kt"
+note = "GlobalExceptionHandler에 통합 가능"
+
+[security_removal.phase7_tests]
+title = "Phase 7: 테스트 수정"
+description = "Spring Security 테스트를 Istio 헤더 기반으로 수정"
+
+[security_removal.phase7_tests.unit_test_changes]
+before = """
+mockMvc.perform(
+    get("/api/v1/resource")
+        .header("Authorization", "Bearer valid-token")
+).andExpect(status().isOk)
+"""
+after = """
+mockMvc.perform(
+    get("/api/v1/resource")
+        .header("X-User-Id", userId.toString())
+        .header("X-User-Role", "CUSTOMER")
+).andExpect(status().isOk)
+"""
+
+[security_removal.phase7_tests.integration_test_changes]
+remove = [
+    "JWT 토큰 생성 로직",
+    "@WithMockUser, @WithUserDetails 등 Spring Security 테스트 어노테이션",
+    "SecurityMockMvcConfigurers",
+]
+add = [
+    "Istio 헤더를 직접 주입하는 MockMvc 설정",
+]
+
+[security_removal.phase8_documentation]
+title = "Phase 8: 작업 문서 생성"
+output_file = "docs/spring-security-removal-[service-name].md"
+sections = [
+    "변경 사항 요약 (제거/수정 파일 목록)",
+    "테스트 결과",
+    "주의사항 (Istio 필수, 로컬 개발 방법)",
+    "롤백 계획",
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Local Development Support
+# ─────────────────────────────────────────────────────────────────────────────
+
+[security_removal.local_dev]
+title = "로컬 개발 환경 지원"
+description = "Istio 없이 로컬 개발 시 Mock 헤더 주입"
+
+[security_removal.local_dev.mock_filter]
+location = "common/config/LocalDevAuthFilter.kt"
+code = """
+@Profile("local")
+@Component
+class LocalDevAuthFilter : OncePerRequestFilter() {
+    override fun doFilterInternal(
+        request: HttpServletRequest,
+        response: HttpServletResponse,
+        filterChain: FilterChain
+    ) {
+        if (request.getHeader("X-User-Id") == null) {
+            val wrapper = object : HttpServletRequestWrapper(request) {
+                override fun getHeader(name: String): String? {
+                    return when (name) {
+                        "X-User-Id" -> "00000000-0000-0000-0000-000000000001"
+                        "X-User-Role" -> "CUSTOMER"
+                        else -> super.getHeader(name)
+                    }
+                }
+            }
+            filterChain.doFilter(wrapper, response)
+            return
+        }
+        filterChain.doFilter(request, response)
+    }
+}
+"""
+
+# =============================================================================
+# PART 2: Hexagonal Architecture 적용
+# =============================================================================
+
+[hexagonal_architecture]
+title = "Hexagonal Architecture (Ports and Adapters 패턴) 적용"
+priority = "Medium"
+estimated_effort = "8-16 hours"
+prerequisite = "Spring Data JPA 사용, DDD 기반 도메인 모델"
+
+[hexagonal_architecture.overview]
+description = """
+도메인 로직과 인프라 계층을 명확히 분리하여 테스트 용이성과 유지보수성을 개선합니다.
+핵심 원칙: 의존성 방향은 항상 안쪽(Domain)으로만 흐릅니다.
+"""
+
+dependency_rule = "Adapter → Port → Domain (외부에서 내부로)"
+
+benefits = [
+    "도메인 로직의 프레임워크 독립성 확보",
+    "의존성 역전 원칙(DIP) 적용",
+    "테스트 용이성 향상 (Port 인터페이스로 쉬운 Mock)",
+    "기술 스택 변경 시 유연성 (Adapter만 교체)",
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Package Structure
+# ─────────────────────────────────────────────────────────────────────────────
+
+[hexagonal_architecture.package_structure]
+title = "패키지 구조 변경"
+
+[hexagonal_architecture.package_structure.before]
+description = "리팩토링 전 (Layered Architecture)"
+structure = """
+com.example.domain/
+├── domain/
+│   ├── model/
+│   └── service/          # ⚠️ Port가 여기 있음
+│       ├── StoreReader.kt
+│       └── StoreWriter.kt
+├── application/
+│   └── service/
+└── outbound/
+    └── adapter/          # Port 구현체
+        ├── StoreReaderAdapter.kt
+        └── StoreWriterAdapter.kt
+"""
+
+[hexagonal_architecture.package_structure.after]
+description = "리팩토링 후 (Hexagonal Architecture)"
+structure = """
+com.example.domain/
+├── domain/
+│   ├── model/           # 도메인 엔티티
+│   ├── service/         # 도메인 서비스
+│   └── port/            # ✅ Port 인터페이스
+│       ├── LoadStorePort.kt
+│       ├── SaveStorePort.kt
+│       └── PublishEventPort.kt
+├── application/
+│   └── service/         # Use Case 구현
+└── adapter/
+    ├── in/
+    │   └── web/         # Controller
+    └── out/
+        ├── persistence/ # ✅ Port 구현체
+        │   ├── StoreJpaRepository.kt
+        │   ├── StorePersistenceAdapter.kt
+        │   └── entity/
+        ├── client/      # 외부 서비스 호출
+        └── event/       # 이벤트 발행
+"""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Port Interface Design
+# ─────────────────────────────────────────────────────────────────────────────
+
+[hexagonal_architecture.port_design]
+title = "Port 인터페이스 설계"
+
+[hexagonal_architecture.port_design.naming_convention]
+description = "Port 네이밍 규칙"
+pattern = "동사 + 도메인명 + Port"
+
+[[hexagonal_architecture.port_design.naming_convention.rules]]
+operation = "조회 (Read)"
+prefix = "Load"
+examples = ["LoadUserPort", "LoadStorePort", "LoadOrderPort"]
+
+[[hexagonal_architecture.port_design.naming_convention.rules]]
+operation = "저장 (Write)"
+prefix = "Save"
+examples = ["SaveUserPort", "SaveStorePort", "SaveProductPort"]
+
+[[hexagonal_architecture.port_design.naming_convention.rules]]
+operation = "외부 통신"
+prefix = "동사 (Generate, Verify, Create, Publish, Send)"
+examples = [
+    "GenerateTokenPort (토큰 생성)",
+    "VerifyPasswordPort (비밀번호 검증)",
+    "CreateStorePort (외부 서비스 호출)",
+    "PublishEventPort (이벤트 발행)",
+    "SendEmailPort (이메일 발송)",
+]
+
+[hexagonal_architecture.port_design.method_naming]
+description = "Port 메서드 네이밍"
+pattern = "JPA와 구분되는 비즈니스 용어 사용"
+examples = [
+    "loadById() - JPA의 findById()와 구분",
+    "save() - 동일 (저장은 명확)",
+    "existsBy*() - JPA와 동일 가능",
+]
+avoid = [
+    "find*() - JPA Repository와 혼동 가능",
+]
+
+[hexagonal_architecture.port_design.return_type]
+description = "반환 타입 규칙"
+kotlin_nullable = "T? (null 가능 타입) 사용"
+avoid_optional = "Optional<T>는 JPA Adapter 내부에서만"
+reason = "Port는 Domain 계약이므로 Kotlin의 nullable 타입이 더 명확"
+
+[hexagonal_architecture.port_design.template]
+language = "kotlin"
+code = """
+package com.groom.domain.port
+
+import com.groom.domain.model.DomainModel
+import java.util.UUID
+
+/**
+ * [도메인명] [작업]을 위한 Outbound Port.
+ * Domain이 외부 인프라에 요구하는 계약.
+ */
+interface Load[도메인명]Port {
+    /**
+     * ID로 [도메인] 조회
+     *
+     * @param id [도메인] ID
+     * @return [도메인] 또는 null (존재하지 않을 경우)
+     */
+    fun loadById(id: UUID): [도메인모델]?
+
+    /**
+     * [조건]으로 존재 여부 확인
+     */
+    fun existsBy[조건](조건: Type): Boolean
+}
+
+interface Save[도메인명]Port {
+    /**
+     * [도메인] 저장
+     */
+    fun save([도메인]: [도메인모델]): [도메인모델]
+}
+"""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Adapter Implementation
+# ─────────────────────────────────────────────────────────────────────────────
+
+[hexagonal_architecture.adapter_implementation]
+title = "Adapter 구현"
+
+[hexagonal_architecture.adapter_implementation.persistence_adapter]
+description = "영속성 Adapter (JPA)"
+location = "adapter/out/persistence/"
+components = ["JpaRepository", "PersistenceAdapter", "Mapper"]
+
+[hexagonal_architecture.adapter_implementation.persistence_adapter.template]
+language = "kotlin"
+code = """
+// 1. JPA Repository (Adapter 내부)
+interface UserJpaRepository : JpaRepository<UserJpaEntity, UUID> {
+    fun findByEmail(email: String): Optional<UserJpaEntity>
+    fun existsByEmail(email: String): Boolean
+}
+
+// 2. Persistence Adapter (Port 구현)
+@Component
+class UserPersistenceAdapter(
+    private val userJpaRepository: UserJpaRepository,
+) : LoadUserPort, SaveUserPort {
+
+    override fun loadById(id: UUID): User? {
+        return userJpaRepository.findById(id)
+            .map { it.toDomain() }  // Mapper 사용
+            .orElse(null)
+    }
+
+    override fun loadByEmail(email: String): User? {
+        return userJpaRepository.findByEmail(email)
+            .map { it.toDomain() }
+            .orElse(null)
+    }
+
+    override fun save(user: User): User {
+        val entity = user.toEntity()  // Mapper 사용
+        return userJpaRepository.save(entity).toDomain()
+    }
+}
+
+// 3. Extension Functions (Mapper 역할)
+private fun UserJpaEntity.toDomain(): User = User(...)
+private fun User.toEntity(): UserJpaEntity = UserJpaEntity(...)
+"""
+
+[hexagonal_architecture.adapter_implementation.client_adapter]
+description = "외부 서비스 호출 Adapter"
+location = "adapter/out/client/"
+example = """
+@Component
+@Profile("!test")  // 테스트 환경에서는 Mock 사용
+class StoreClientAdapter(
+    private val storeClient: StoreClient,  // Feign Client
+) : CreateStorePort {
+
+    override fun createNewStore(
+        ownerUserId: UUID,
+        name: String,
+        description: String?
+    ): NewStore {
+        val response = storeClient.createStore(
+            CreateStoreRequest(ownerUserId, name, description)
+        )
+        return NewStore(id = response.storeId, name = response.name)
+    }
+}
+"""
+
+[hexagonal_architecture.adapter_implementation.security_adapter]
+description = "보안 관련 Adapter"
+location = "adapter/out/security/"
+examples = [
+    "PasswordVerifierAdapter (Bcrypt 사용)",
+    "TokenGeneratorAdapter (JWT 생성)",
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Refactoring Steps
+# ─────────────────────────────────────────────────────────────────────────────
+
+[hexagonal_architecture.refactoring_steps]
+title = "리팩토링 단계별 가이드"
+
+[[hexagonal_architecture.refactoring_steps.step]]
+order = 1
+title = "Domain Port 인터페이스 생성"
+location = "domain/port/"
+tasks = [
+    "기존 domain/service의 인터페이스 분석",
+    "LoadXxxPort, SaveXxxPort 등 Port 생성",
+    "메서드명을 load*, save* 패턴으로 변경",
+    "반환 타입을 nullable로 변경 (Optional 제거)",
+    "외부 시스템 Port 추가 (GenerateTokenPort, VerifyPasswordPort 등)",
+]
+output = "7개 Port 인터페이스 (Load, Save, Generate, Verify, Create 등)"
+
+[[hexagonal_architecture.refactoring_steps.step]]
+order = 2
+title = "Adapter 구현체 생성"
+location = "adapter/out/"
+tasks = [
+    "XxxPersistenceAdapter 클래스 생성 (persistence/)",
+    "Port 인터페이스 구현 (implements LoadXxxPort, SaveXxxPort)",
+    "기존 JpaRepository 주입",
+    "Entity ↔ Domain Model 변환 (Extension Functions 또는 Mapper)",
+    "외부 서비스 Adapter 생성 (client/)",
+    "보안 Adapter 생성 (security/)",
+]
+output = "5-6개 Adapter 구현체"
+
+[[hexagonal_architecture.refactoring_steps.step]]
+order = 3
+title = "Domain Service 수정"
+location = "domain/service/"
+tasks = [
+    "기존 Reader, Writer 의존성을 Port로 변경",
+    "import 수정 (domain.service → domain.port)",
+    "생성자 파라미터명 변경 (예: userReader → loadUserPort)",
+    "Optional → nullable 타입 변경",
+]
+
+[[hexagonal_architecture.refactoring_steps.step]]
+order = 4
+title = "Application Service 수정"
+location = "application/service/"
+tasks = [
+    "Port 의존성으로 변경",
+    "import 수정",
+]
+note = "Spring DI가 자동으로 Adapter 주입"
+
+[[hexagonal_architecture.refactoring_steps.step]]
+order = 5
+title = "테스트 코드 수정"
+tasks = [
+    "Mock 선언을 Port 인터페이스로 변경",
+    "Optional 패턴을 nullable로 변경",
+    "테스트 픽스처 Adapter 업데이트 (NoOpsXxxAdapter)",
+]
+
+[[hexagonal_architecture.refactoring_steps.step]]
+order = 6
+title = "기존 인터페이스 제거"
+tasks = [
+    "domain/service의 Reader, Writer 인터페이스 제거",
+    "outbound/adapter의 구현체 제거",
+    "사용하지 않는 파일 정리",
+]
+
+[[hexagonal_architecture.refactoring_steps.step]]
+order = 7
+title = "빌드 및 테스트"
+tasks = [
+    "./gradlew clean build",
+    "컴파일 에러 수정",
+    "단위 테스트 실행",
+    "통합 테스트 실행",
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Common Mistakes
+# ─────────────────────────────────────────────────────────────────────────────
+
+[hexagonal_architecture.common_mistakes]
+title = "자주 하는 실수와 해결책"
+
+[[hexagonal_architecture.common_mistakes.mistake]]
+issue = "Port를 application/port에 위치"
+problem = "Domain이 Application을 의존하게 됨 (의존성 역전 실패)"
+solution = "Port는 domain/port에 위치. Domain이 자신의 계약을 정의"
+
+[[hexagonal_architecture.common_mistakes.mistake]]
+issue = "JPA Repository를 Port로 직접 사용"
+problem = "Domain이 JPA 프레임워크에 의존"
+solution = "JpaRepository는 Adapter 내부에만. Port는 순수 인터페이스"
+
+[[hexagonal_architecture.common_mistakes.mistake]]
+issue = "Domain과 Application이 같은 Port를 의존하는 것을 문제로 봄"
+problem = "이것은 정상적인 패턴"
+solution = "두 레이어 모두 같은 데이터 필요. 같은 Port 의존은 자연스러움"
+
+[[hexagonal_architecture.common_mistakes.mistake]]
+issue = "메서드명을 find*로 유지"
+problem = "Spring Data JPA와 혼동"
+solution = "Port는 load*, save* 등 명확한 비즈니스 용어 사용"
+
+[[hexagonal_architecture.common_mistakes.mistake]]
+issue = "Port에서 Optional 반환"
+problem = "Kotlin에서는 nullable이 더 명확"
+solution = "User? 타입 사용. Optional은 JPA Adapter 내부에서만"
+
+# =============================================================================
+# PART 3: 통합 체크리스트 및 검증
+# =============================================================================
+
+[verification]
+title = "통합 검증 체크리스트"
+
+[verification.security_removal_checklist]
+title = "Spring Security 제거 검증"
+items = [
+    "[ ] Spring Security 관련 파일 모두 제거됨",
+    "[ ] SecurityContext 사용처 모두 제거됨",
+    "[ ] JWT 검증 코드 모두 제거됨 (발급 서비스는 발급 코드만 유지)",
+    "[ ] 모든 Controller가 Istio 헤더 기반으로 수정됨",
+    "[ ] IstioHeaderExtractor 유틸리티 생성됨",
+    "[ ] 에러 핸들러 추가됨 (헤더 누락 처리)",
+    "[ ] build.gradle.kts에서 Spring Security 의존성 제거됨",
+    "[ ] 단위/통합 테스트가 Istio 헤더 기반으로 수정됨",
+    "[ ] 로컬 개발용 Mock 필터 추가됨 (@Profile(\"local\"))",
+]
+
+[verification.hexagonal_architecture_checklist]
+title = "Hexagonal Architecture 적용 검증"
+items = [
+    "[ ] domain/port/ 패키지 생성됨",
+    "[ ] adapter/out/persistence/ 패키지 생성됨",
+    "[ ] adapter/out/client/ 패키지 생성됨 (필요 시)",
+    "[ ] adapter/out/security/ 패키지 생성됨 (필요 시)",
+    "[ ] Port 네이밍이 명확함 (LoadXxxPort, SaveXxxPort)",
+    "[ ] Port가 domain/port에 위치함",
+    "[ ] Port 메서드명이 load*, save* 패턴을 따름",
+    "[ ] Port에 프레임워크 의존성 없음",
+    "[ ] Adapter가 Port를 구현함",
+    "[ ] JpaRepository가 Adapter 내부에만 존재함",
+    "[ ] Domain/Application Service가 Port를 의존함",
+    "[ ] 기존 Reader, Writer 인터페이스 제거됨",
+    "[ ] Optional → nullable 타입으로 변경됨",
+]
+
+[verification.build_and_test]
+title = "빌드 및 테스트 검증"
+commands = [
+    "./gradlew clean build",
+    "./gradlew test",
+    "./gradlew integrationTest",
+]
+expected = [
+    "빌드 성공",
+    "모든 단위 테스트 통과",
+    "모든 통합 테스트 통과",
+]
+
+[verification.code_quality]
+title = "코드 품질 검증"
+commands = [
+    "find src/main -name '*Security*'  # 0개 예상",
+    "grep -r 'SecurityContextHolder' src/main/  # 0개 예상",
+    "grep -r 'Optional' src/main/kotlin/com/*/domain/port/  # 0개 예상",
+    "find src/main/kotlin/com/*/domain/service -name '*Reader.kt' -o -name '*Writer.kt'  # 0개 예상",
+]
+
+# =============================================================================
+# PART 4: 작업 순서 및 조합
+# =============================================================================
+
+[work_order]
+title = "작업 순서 권장사항"
+
+[work_order.independent]
+description = "두 작업은 독립적으로 수행 가능"
+notes = [
+    "Security 제거와 Hexagonal Architecture 적용은 별개 작업",
+    "프로젝트 상황에 따라 한 가지만 선택 가능",
+]
+
+[work_order.sequential_option1]
+title = "옵션 1: Security 제거 → Hexagonal Architecture"
+reason = "보안 변경을 먼저 완료하고 아키텍처 개선"
+steps = [
+    "1. Spring Security 제거 (4-8h)",
+    "2. 테스트 및 검증",
+    "3. 커밋 및 배포",
+    "4. Hexagonal Architecture 적용 (8-16h)",
+    "5. 테스트 및 검증",
+    "6. 커밋 및 배포",
+]
+total_effort = "12-24 hours"
+
+[work_order.sequential_option2]
+title = "옵션 2: Hexagonal Architecture → Security 제거"
+reason = "아키텍처를 먼저 정리하고 보안 변경"
+steps = [
+    "1. Hexagonal Architecture 적용 (8-16h)",
+    "2. 테스트 및 검증",
+    "3. 커밋 및 배포",
+    "4. Spring Security 제거 (4-8h)",
+    "5. 테스트 및 검증",
+    "6. 커밋 및 배포",
+]
+total_effort = "12-24 hours"
+note = "이 순서가 더 안전할 수 있음 (아키텍처 먼저 정리)"
+
+[work_order.parallel]
+title = "옵션 3: 동시 작업 (권장하지 않음)"
+reason = "변경 범위가 너무 커서 디버깅 어려움"
+risk = "높음"
+recommendation = "가급적 순차 진행"
+
+# =============================================================================
+# PART 5: 참고 자료 및 예제
+# =============================================================================
+
+[references]
+title = "참고 자료"
+
+[[references.internal]]
+title = "Customer Service 작업 문서"
+location = "docs/spring-security-removal.md"
+description = "Customer Service에서 실제 작업한 상세 문서 (JWT 발급 포함)"
+
+[[references.internal]]
+title = "Customer Service 코드베이스"
+location = "customer-api/src/"
+description = "Hexagonal Architecture 적용 완료된 실제 코드"
+
+[[references.external]]
+title = "Istio RequestAuthentication"
+url = "https://istio.io/latest/docs/reference/config/security/request_authentication/"
+
+[[references.external]]
+title = "Istio AuthorizationPolicy"
+url = "https://istio.io/latest/docs/reference/config/security/authorization-policy/"
+
+[[references.external]]
+title = "Hexagonal Architecture"
+url = "https://alistair.cockburn.us/hexagonal-architecture/"
+
+# =============================================================================
+# PART 6: 서비스별 적용 예제
+# =============================================================================
+
+[examples]
+title = "서비스별 적용 예제"
+
+[[examples.service]]
+name = "customer-service"
+status = "완료"
+applied = ["Spring Security 제거", "Hexagonal Architecture"]
+notes = """
+- JWT 발급 기능 포함 (Auth 서비스)
+- JwtTokenProvider는 유지 (발급 기능만)
+- 7개 Port, 5개 Adapter 생성
+- 모든 테스트 통과
+"""
+
+[[examples.service]]
+name = "store-service"
+status = "대기"
+applied = []
+recommendation = "Hexagonal Architecture 먼저 적용 후 Security 제거"
+notes = """
+- Store 조회, 등록, 수정, 삭제 API
+- OWNER 역할만 Store 생성/수정
+- SecurityContext → Istio 헤더로 변경 필요
+"""
+
+[[examples.service]]
+name = "product-service"
+status = "대기"
+applied = []
+recommendation = "Security 제거만 진행 (아키텍처는 유지)"
+notes = """
+- 상품 조회, 등록, 수정, 삭제 API
+- OWNER/CUSTOMER 역할 구분
+- JWT 발급 기능 없음 → 모든 JWT 코드 제거
+"""
+
+[[examples.service]]
+name = "order-service"
+status = "대기"
+applied = []
+recommendation = "두 작업 모두 순차 진행"
+notes = """
+- 주문 생성, 조회, 취소 API
+- CUSTOMER 역할만 주문 생성
+- 본인 주문만 조회 가능
+"""
+
+# =============================================================================
+# PART 7: 롤백 및 트러블슈팅
+# =============================================================================
+
+[rollback]
+title = "롤백 계획"
+
+[rollback.strategy]
+description = "Git을 통한 단계별 롤백"
+commands = [
+    "git log --oneline -10  # 작업 전 커밋 확인",
+    "git revert <commit-hash>  # 특정 커밋 되돌리기",
+    "git reset --hard origin/main  # 긴급 시 전체 초기화",
+]
+
+[rollback.checkpoint]
+description = "체크포인트 커밋 전략"
+recommendation = "각 Phase 완료 시 커밋"
+example_commits = [
+    "refactor: Spring Security 제거 - Phase 1-3 완료 (Controller 수정)",
+    "refactor: Spring Security 제거 - Phase 4-6 완료 (유틸리티 및 에러 핸들러)",
+    "test: Spring Security 제거 - 테스트 수정 완료",
+    "refactor: Hexagonal Architecture - Domain Port 생성",
+    "refactor: Hexagonal Architecture - Adapter 구현",
+    "refactor: Hexagonal Architecture - Domain/Application Service 수정",
+]
+
+[troubleshooting]
+title = "트러블슈팅"
+
+[[troubleshooting.issue]]
+problem = "Istio 헤더가 null로 들어옴"
+causes = [
+    "Istio RequestAuthentication이 올바르게 설정되지 않음",
+    "JWT 토큰이 없거나 만료됨",
+    "Istio가 서비스 앞에 배치되지 않음",
+]
+solutions = [
+    "Istio 설정 확인 (RequestAuthentication, AuthorizationPolicy)",
+    "JWT 토큰 유효성 확인",
+    "NetworkPolicy 확인 (서비스가 Istio를 거치도록)",
+]
+
+[[troubleshooting.issue]]
+problem = "Port 순환 참조 에러"
+cause = "Port가 서로를 의존하는 경우"
+solution = "Port는 서로 의존하지 않아야 함. Domain Service에서 조합"
+
+[[troubleshooting.issue]]
+problem = "JPA Entity와 Domain Model 변환 오류"
+cause = "Mapper 로직 오류 또는 필드 누락"
+solution = "Extension Function으로 명확한 변환 로직 작성"
+
+[[troubleshooting.issue]]
+problem = "테스트에서 Istio 헤더 Mock 실패"
+cause = "MockMvc 설정 문제"
+solution = ".header(\"X-User-Id\", userId.toString()) 형태로 명시적 주입"
+
+# =============================================================================
+# 변경 이력
+# =============================================================================
+
+[changelog]
+[[changelog.version]]
+version = "2.0.0"
+date = "2025-11-14"
+changes = [
+    "Spring Security 제거 가이드와 Hexagonal Architecture 가이드 통합",
+    "작업 순서 및 조합 가이드 추가",
+    "통합 체크리스트 및 검증 프로세스 추가",
+    "트러블슈팅 섹션 추가",
+    "서비스별 적용 예제 추가",
+]
+
+[[changelog.version]]
+version = "1.0.0"
+date = "2025-11-13"
+changes = [
+    "Spring Security 제거 가이드 초안 작성",
+    "Hexagonal Architecture 가이드 초안 작성",
+]
