@@ -1,16 +1,18 @@
 # Store Management
 
-매장 생성 및 삭제 관리
+매장 생성, 정보 변경, 삭제 관리
 
 ## 개요
 
-매장 관리는 두 가지 주요 작업으로 구성됩니다:
+매장 관리는 세 가지 주요 작업으로 구성됩니다:
 - **매장 생성**: OWNER 역할 검증 후 매장 생성 (동기 HTTP)
+- **매장 정보 변경**: 스토어 정보 변경 후 연관 상품 정보 동기화 (비동기)
 - **매장 삭제**: Soft Delete 후 연관 상품 비활성화 (비동기)
 
 **특징:**
 - ✅ **역할 검증**: Circuit Breaker 패턴으로 User Service 호출
 - ✅ **보안 우선**: Eventual Consistency 대신 동기 검증
+- ✅ **데이터 동기화**: 스토어 정보 변경 시 상품 비정규화 데이터 자동 업데이트
 - ✅ **Cascade Operation**: 매장 삭제 시 연관 상품 자동 비활성화
 - ✅ **Soft Delete**: 데이터 복구 가능 (30일 이내)
 
@@ -23,6 +25,7 @@ graph TB
     Start([매장 관리 요청]) --> Decision{작업 선택}
 
     Decision -->|생성| RoleCheck{역할 검증<br/>동기 HTTP}
+    Decision -->|정보 변경| UpdateOwnerCheck{소유자 확인}
     Decision -->|삭제| OwnerCheck{소유자 확인}
 
     %% 생성 플로우
@@ -33,6 +36,13 @@ graph TB
     %% Circuit Breaker 실패
     RoleCheck -->|Circuit Open| ServiceUnavailable[503 Service Unavailable]
     ServiceUnavailable --> CreateFailure([생성 실패])
+
+    %% 정보 변경 플로우
+    UpdateOwnerCheck -->|일치| StoreUpdate[스토어 정보 업데이트<br/>Store DB UPDATE]
+    UpdateOwnerCheck -->|불일치| UpdateForbidden[403 Forbidden]
+    StoreUpdate --> UpdateEventPublish[store.info.updated 이벤트 발행]
+    UpdateEventPublish --> ProductInfoSync[연관 상품 정보 동기화<br/>비동기]
+    ProductInfoSync --> UpdateSuccess([변경 완료])
 
     %% 삭제 플로우
     OwnerCheck -->|일치| SoftDelete[Soft Delete<br/>status=DELETED]
@@ -47,10 +57,10 @@ graph TB
     classDef processingClass fill:#fff3cd,stroke:#ffc107,stroke-width:2px
     classDef decisionClass fill:#d1ecf1,stroke:#17a2b8,stroke-width:2px
 
-    class CreateSuccess,DeleteSuccess,StoreCreate,SoftDelete,ProductDisable successClass
-    class CreateForbidden,DeleteForbidden,ServiceUnavailable,CreateFailure failureClass
-    class EventPublish processingClass
-    class Decision,RoleCheck,OwnerCheck decisionClass
+    class CreateSuccess,DeleteSuccess,UpdateSuccess,StoreCreate,StoreUpdate,SoftDelete,ProductDisable,ProductInfoSync successClass
+    class CreateForbidden,DeleteForbidden,UpdateForbidden,ServiceUnavailable,CreateFailure failureClass
+    class EventPublish,UpdateEventPublish processingClass
+    class Decision,RoleCheck,OwnerCheck,UpdateOwnerCheck decisionClass
 ```
 
 ---
@@ -76,7 +86,32 @@ OWNER 역할을 가진 사용자만 매장을 생성할 수 있습니다.
 
 ---
 
-### 2. 매장 삭제 (비동기)
+### 2. 매장 정보 변경 (비동기)
+매장 정보 변경 시 연관된 모든 상품의 비정규화된 스토어 정보가 자동으로 동기화됩니다.
+
+**문서:** [update-store-info.md](./update-store-info.md)
+
+**플로우:**
+1. 소유자 확인
+2. 스토어 정보 업데이트 (name, description, phone, address 등)
+3. `store.info.updated` 이벤트 발행
+4. Product Service가 연관 상품의 스토어 정보 동기화
+
+**주요 포인트:**
+- ✅ 비정규화 데이터 동기화: 상품 검색 성능 최적화
+- ✅ Eventual Consistency: 빠른 응답 후 비동기 처리
+- ✅ 선택적 업데이트: 변경된 필드만 추적
+
+**주요 이벤트:**
+- `store.info.updated` - 매장 정보 변경
+
+**응답 시간:**
+- Store 정보 업데이트: ~100ms (동기)
+- 연관 상품 동기화: 1~5초 (비동기, 상품 수에 따라 변동)
+
+---
+
+### 3. 매장 삭제 (비동기)
 매장 삭제 시 연관된 모든 상품이 자동으로 비활성화됩니다.
 
 **문서:** [delete-store.md](./delete-store.md)
@@ -102,6 +137,21 @@ OWNER 역할을 가진 사용자만 매장을 생성할 수 있습니다.
 ---
 
 ## 관련 이벤트 (Avro 스키마)
+
+### 매장 정보 변경 이벤트
+- [`StoreInfoUpdated.avsc`](../../src/main/avro/store/StoreInfoUpdated.avsc)
+
+**Kafka 토픽:** `store.info.updated`
+
+**파티션 키:** `storeId`
+
+**주요 필드:**
+- `storeName`: 변경된 스토어 이름
+- `storeStatus`: 스토어 상태
+- `storeDescription`, `storePhone`, `storeAddress`, `businessHours`, `storeImageUrl`: 기타 스토어 정보
+- `updatedFields`: 변경된 필드 목록 (선택적 처리)
+
+---
 
 ### 매장 삭제 이벤트
 - [`StoreDeleted.avsc`](../../src/main/avro/store/StoreDeleted.avsc)
