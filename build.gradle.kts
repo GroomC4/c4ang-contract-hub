@@ -6,11 +6,9 @@ plugins {
     idea
 }
 
-// JitPack 사용을 위한 group 설정
-// 실제 배포 시 com.github.{GitHub_유저명}으로 변경 필요
-group = "com.c4ang"  // 로컬 개발용
-// group = "com.github.your-username"  // JitPack 배포용 (주석 해제 및 유저명 변경)
-version = "1.0.0-SNAPSHOT"
+// JitPack 배포를 위한 group 설정
+group = "com.github.GroomC4"  // JitPack: com.github.{GitHub_조직명}
+version = "1.0.0"  // 첫 정식 릴리스
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
