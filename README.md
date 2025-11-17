@@ -1,10 +1,16 @@
 # C4ang Contract Hub
 
-> 이벤트 기반 MSA를 위한 Avro 스키마 및 이벤트 흐름 문서 관리 레포지토리
+> MSA 서비스 간 통신을 위한 Avro 스키마 및 문서 중앙 관리 레포지토리
 
 ## 📋 프로젝트 개요
 
-C4ang Contract Hub는 **이벤트 기반 MSA(Microservices Architecture)** 환경에서 서비스 간 이벤트 통신을 위한 **중앙 집중식 스키마 및 문서 관리 시스템**입니다. Apache Avro 스키마를 정의하고 Java class를 생성하여 각 서비스에서 사용할 수 있도록 artifact를 배포합니다.
+C4ang Contract Hub는 **MSA(Microservices Architecture)** 환경에서 서비스 간 통신을 위한 **중앙 집중식 스키마 및 문서 관리 시스템**입니다.
+
+**관리 대상:**
+- **비동기 통신**: Kafka 이벤트 기반 통신 (SAGA 패턴)
+- **동기 통신**: K8s 내부 REST API 통신
+
+Apache Avro 스키마로 데이터 구조를 정의하고, Java class를 자동 생성하여 각 서비스에서 타입 안전하게 사용할 수 있도록 지원합니다.
 
 ## 🛠️ 기술 스택
 
@@ -19,13 +25,17 @@ C4ang Contract Hub는 **이벤트 기반 MSA(Microservices Architecture)** 환�
 
 ### 1. Avro 스키마 관리
 
-**Kafka 이벤트를 위한 Avro 스키마를 중앙에서 관리합니다.**
+**서비스 간 통신을 위한 Avro 스키마를 중앙에서 관리합니다.**
+
+**관리 대상:**
+- **비동기 이벤트**: Kafka 이벤트 스키마 (SAGA 패턴, 보상 트랜잭션)
+- **동기 API**: REST API 요청/응답 스키마
 
 **주요 기능:**
 - 도메인별 Avro 스키마 정의 (`.avsc`)
-- SAGA 패턴 이벤트 스키마 관리
-- 보상 트랜잭션(Compensation) 스키마 정의
+- 이벤트/API 스키마 분리 관리
 - 스키마 버전 관리 (Git)
+- 공통 스키마 재사용 (각 영역별 독립 관리)
 
 **장점:**
 - 단일 진실 공급원(Single Source of Truth)
@@ -51,19 +61,25 @@ C4ang Contract Hub는 **이벤트 기반 MSA(Microservices Architecture)** 환�
 - 직렬화/역직렬화 자동 처리
 - Kotlin interop 완벽 지원
 
-### 3. 이벤트 흐름 문서화
+### 3. 통신 흐름 문서화
 
-**Choreography Saga 패턴의 이벤트 흐름을 시각화하고 문서화합니다.**
+**서비스 간 통신 흐름을 시각화하고 문서화합니다.**
 
-**주요 기능:**
+**비동기 이벤트 흐름 (Event Flows):**
 - 비즈니스 플로우별 이벤트 시퀀스 문서화
 - Kafka 토픽 및 Partition Key 명세
-- 이벤트 발행/구독 관계 정의
-- SAGA 실패 시나리오 및 보상 트랜잭션 정의
+- SAGA 패턴 및 보상 트랜잭션 정의
+- 이벤트 발행/구독 관계 다이어그램
+
+**동기 API 흐름 (API Flows):**
+- K8s 내부 REST API 명세
+- 요청/응답 스키마 및 에러 처리
+- 서비스 간 호출 시퀀스 다이어그램
+- 성능 및 보안 고려사항
 
 **장점:**
-- 분산 트랜잭션 흐름의 가시성 확보
-- 이벤트 기반 아키텍처의 복잡도 관리
+- 분산 시스템 흐름의 가시성 확보
+- 아키텍처 복잡도 관리
 - 신규 개발자의 시스템 이해도 향상
 - 장애 발생 시 디버깅 용이
 
@@ -72,29 +88,52 @@ C4ang Contract Hub는 **이벤트 기반 MSA(Microservices Architecture)** 환�
 ```
 c4ang-contract-hub/
 │
-├── src/main/avro/              # Avro 스키마 정의
-│   ├── store/                  # Store 도메인 이벤트
-│   │   └── StoreDeleted.avsc
-│   ├── order/                  # Order 도메인 이벤트
-│   │   ├── OrderCreated.avsc
-│   │   ├── OrderConfirmed.avsc
-│   │   └── OrderCancelled.avsc
-│   ├── product/                # Product 도메인 이벤트
-│   │   └── StockReserved.avsc
-│   ├── payment/                # Payment 도메인 이벤트
-│   │   ├── PaymentCompleted.avsc
-│   │   ├── PaymentFailed.avsc
-│   │   └── PaymentCancelled.avsc
-│   ├── saga/                   # SAGA 패턴 이벤트
-│   │   ├── StockReservationFailed.avsc
-│   │   ├── StockConfirmationFailed.avsc
-│   │   ├── OrderConfirmationCompensate.avsc
-│   │   ├── PaymentCompletionCompensate.avsc
-│   │   └── SagaTracker.avsc
-│   ├── monitoring/             # 모니터링 이벤트
-│   │   └── StockSyncAlert.avsc
-│   └── analytics/              # 분석 이벤트
-│       └── DailyStatistics.avsc
+├── src/main/
+│   ├── events/avro/            # 비동기 이벤트 스키마 (Kafka)
+│   │   ├── order/              # 주문 도메인 이벤트
+│   │   │   ├── OrderCreated.avsc
+│   │   │   ├── OrderConfirmed.avsc
+│   │   │   └── OrderCancelled.avsc
+│   │   ├── payment/            # 결제 도메인 이벤트
+│   │   │   ├── PaymentCompleted.avsc
+│   │   │   ├── PaymentFailed.avsc
+│   │   │   └── PaymentCancelled.avsc
+│   │   ├── product/            # 상품 도메인 이벤트
+│   │   │   └── StockReserved.avsc
+│   │   ├── store/              # 매장 도메인 이벤트
+│   │   │   └── StoreDeleted.avsc
+│   │   ├── saga/               # SAGA 패턴 보상 트랜잭션
+│   │   │   ├── SagaTracker.avsc
+│   │   │   └── StockReservationFailed.avsc
+│   │   ├── monitoring/         # 모니터링 이벤트
+│   │   │   └── StockSyncAlert.avsc
+│   │   ├── analytics/          # 분석 이벤트
+│   │   │   └── DailyStatistics.avsc
+│   │   └── common/             # 이벤트 공통 스키마
+│   │       └── EventMetadata.avsc
+│   │
+│   └── api/avro/               # 동기 API 스키마 (HTTP REST)
+│       ├── customer/           # Customer Service API
+│       │   ├── UserInternalResponse.avsc
+│       │   └── UserProfileInternal.avsc
+│       ├── order/              # Order Service API (추후 추가)
+│       ├── store/              # Store Service API (추후 추가)
+│       └── common/             # API 공통 스키마
+│           ├── ErrorResponse.avsc
+│           └── Pagination.avsc
+│
+├── event-flows/                # 비동기 이벤트 흐름 문서
+│   ├── order-creation/         # 주문 생성 SAGA
+│   ├── payment-processing/     # 결제 처리 SAGA
+│   ├── store-management/       # 매장 관리
+│   └── scheduled-jobs/         # 스케줄 작업
+│
+├── api-flows/                  # 동기 API 흐름 문서
+│   ├── customer-service/       # Customer Service API
+│   │   ├── README.md
+│   │   └── internal-user-api.md
+│   ├── order-service/          # Order Service API (추후 추가)
+│   └── store-service/          # Store Service API (추후 추가)
 │
 ├── docs/                       # 상세 가이드
 │   ├── interface/              # 인터페이스 명세
@@ -230,14 +269,18 @@ class OrderEventConsumer {
 #### 1. 새로운 스키마 추가
 
 ```bash
-# 1. src/main/avro/{domain}/ 에 .avsc 파일 생성
-vi src/main/avro/order/OrderCreated.avsc
+# 비동기 이벤트 스키마 추가
+vi src/main/events/avro/order/OrderCreated.avsc
 
-# 2. 클래스 생성
+# 동기 API 스키마 추가
+vi src/main/api/avro/customer/UserInternalResponse.avsc
+
+# Java 클래스 생성
 ./gradlew generateAvroJava
 
-# 3. 생성된 클래스 확인
+# 생성된 클래스 확인
 # build/generated-main-avro-java/com/groom/ecommerce/{domain}/event/avro/
+# build/generated-main-avro-java/com/groom/ecommerce/{domain}/api/avro/
 ```
 
 #### 2. 스키마 예시
@@ -271,12 +314,18 @@ vi src/main/avro/order/OrderCreated.avsc
 
 **상세 가이드**: [Avro 클래스 배포 가이드](docs/publishing/avro-artifact-publishing.md)
 
-### 이벤트 흐름 문서
+### 통신 흐름 문서
 
-이벤트 기반 Saga 패턴의 전체 흐름은 다음 문서를 참고하세요:
+서비스 간 통신의 전체 흐름은 다음 문서를 참고하세요:
 
+**비동기 이벤트:**
+- **[Event Flows](event-flows/README.md)** - 이벤트 흐름 전체 개요
 - **[Kafka 이벤트 명세 v2.0](docs/interface/kafka-event-specifications.md)** - 전체 이벤트 목록 및 상세 명세
 - **[Kafka 이벤트 시퀀스](docs/interface/kafka-event-sequence.md)** - 기능별 이벤트 흐름 다이어그램
+
+**동기 API:**
+- **[API Flows](api-flows/README.md)** - API 흐름 전체 개요
+- **[Customer Service API](api-flows/customer-service/)** - 사용자 조회 API
 
 **주요 SAGA 흐름:**
 1. **주문 생성 Saga**: Order Created → Stock Reserved → Order Confirmed
@@ -357,6 +406,10 @@ contract {
 
 ## 📚 관련 문서
 
+### 통신 흐름
+- [Event Flows](event-flows/README.md) - 비동기 이벤트 흐름
+- [API Flows](api-flows/README.md) - 동기 API 흐름
+
 ### 인터페이스 명세
 - [Kafka 이벤트 명세 v2.0](docs/interface/kafka-event-specifications.md)
 - [Kafka 이벤트 시퀀스](docs/interface/kafka-event-sequence.md)
@@ -370,13 +423,30 @@ contract {
 ### 새로운 이벤트 추가 프로세스
 
 1. **스키마 작성**
-   - `src/main/avro/{domain}/` 에 `.avsc` 파일 추가
+   - `src/main/events/avro/{domain}/` 에 `.avsc` 파일 추가
    - 네이밍: `{EventName}.avsc` (PascalCase)
    - namespace: `com.groom.ecommerce.{domain}.event.avro`
 
 2. **문서 업데이트**
+   - `event-flows/` 에 이벤트 흐름 문서 추가
    - `docs/interface/kafka-event-specifications.md` 에 이벤트 명세 추가
-   - 필요 시 `kafka-event-sequence.md` 에 시퀀스 다이어그램 추가
+
+3. **빌드 및 테스트**
+   ```bash
+   ./gradlew generateAvroJava
+   ./gradlew build
+   ```
+
+### 새로운 API 추가 프로세스
+
+1. **스키마 작성**
+   - `src/main/api/avro/{service}/` 에 `.avsc` 파일 추가
+   - 네이밍: `{ResponseName}.avsc` (PascalCase)
+   - namespace: `com.groom.ecommerce.{service}.api.avro`
+
+2. **문서 업데이트**
+   - `api-flows/{service-name}/` 에 API 문서 추가
+   - 시퀀스 다이어그램 및 사용 예시 작성
 
 3. **빌드 및 테스트**
    ```bash
