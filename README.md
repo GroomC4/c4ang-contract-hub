@@ -181,13 +181,17 @@ c4ang-contract-hub/
 
 ### JitPack 배포
 
+[![](https://jitpack.io/v/GroomC4/c4ang-contract-hub.svg)](https://jitpack.io/#GroomC4/c4ang-contract-hub)
+
+현재 최신 버전: **v1.0.0**
+
 ```bash
 # 1. Git Tag 생성 및 Push
 git tag v1.0.0
 git push origin v1.0.0
 
 # 2. JitPack 자동 빌드
-# https://jitpack.io/#your-username/c4ang-contract-hub
+# https://jitpack.io/#GroomC4/c4ang-contract-hub
 ```
 
 **상세 가이드**: [JitPack 배포 가이드](docs/publishing/jitpack-publishing-guide.md)
@@ -202,17 +206,17 @@ git push origin v1.0.0
 // build.gradle.kts
 
 repositories {
-    maven { url = uri("https://jitpack.io") }
-    // 또는 로컬 개발 시
-    mavenLocal()
+    mavenCentral()
+    maven { url = uri("https://jitpack.io") }  // JitPack 저장소 추가
 }
 
 dependencies {
-    // Avro 이벤트 클래스 가져오기
-    implementation("com.github.your-username:c4ang-contract-hub:v1.0.0")
+    // Contract Hub: 이벤트 + API 스키마 (v1.0.0)
+    implementation("com.github.GroomC4:c4ang-contract-hub:v1.0.0")
 
-    // Kafka 및 Avro 의존성
+    // Kafka 및 Avro 의존성 (이벤트용)
     implementation("org.springframework.kafka:spring-kafka")
+    implementation("org.apache.avro:avro:1.11.3")
     implementation("io.confluent:kafka-avro-serializer:7.5.1")
 }
 ```
@@ -243,23 +247,51 @@ class OrderEventPublisher(
 }
 ```
 
-#### 3. Consumer에서 이벤트 구독
+#### 3. 비동기 이벤트 구독 (Kafka)
 
 ```kotlin
-// Payment Service (Consumer)
+// Payment Service (Event Consumer)
 import com.groom.ecommerce.order.event.avro.OrderCreated
 import org.springframework.kafka.annotation.KafkaListener
+import org.springframework.stereotype.Service
 
 @Service
-class OrderEventConsumer {
+class OrderEventListener {
 
     @KafkaListener(topics = ["order.created"], groupId = "payment-service")
     fun handleOrderCreated(event: OrderCreated) {
-        val orderId = event.getOrderId()
-        val customerId = event.getCustomerId()
+        val orderId = event.orderId
+        val userId = event.userId
 
         // 결제 처리 로직
-        processPayment(orderId, customerId)
+        processPayment(orderId, userId)
+    }
+}
+```
+
+#### 4. 동기 API 호출 (HTTP)
+
+```kotlin
+// Order Service (API Client)
+import com.groom.ecommerce.customer.api.avro.UserInternalResponse
+import com.groom.ecommerce.customer.api.avro.UserRole
+import org.springframework.stereotype.Service
+import org.springframework.web.client.RestTemplate
+
+@Service
+class CustomerServiceClient(
+    private val restTemplate: RestTemplate
+) {
+    fun getUserById(userId: String): UserInternalResponse? {
+        return restTemplate.getForObject(
+            "http://customer-service/internal/v1/users/$userId",
+            UserInternalResponse::class.java
+        )
+    }
+
+    fun validateOwner(userId: String): Boolean {
+        val user = getUserById(userId) ?: return false
+        return user.role == UserRole.OWNER && user.isActive
     }
 }
 ```
