@@ -1,0 +1,35 @@
+{
+  "type": "record",
+  "name": "ErrorResponse",
+  "namespace": "com.groom.ecommerce.api.common.avro",
+  "doc": "API 에러 응답 공통 포맷 - 모든 동기 API에서 사용",
+  "fields": [
+    {
+      "name": "errorCode",
+      "type": "string",
+      "doc": "에러 코드 (예: USER_NOT_FOUND, INVALID_UUID_FORMAT, STORE_NOT_FOUND)"
+    },
+    {
+      "name": "message",
+      "type": "string",
+      "doc": "사용자에게 표시할 에러 메시지"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "에러 발생 시각"
+    },
+    {
+      "name": "path",
+      "type": "string",
+      "doc": "요청 경로 (예: /internal/v1/users/123e4567-e89b-12d3-a456-426614174000)"
+    },
+    {
+      "name": "details",
+      "type": ["null", {"type": "map", "values": "string"}],
+      "default": null,
+      "doc": "추가 에러 상세 정보 (선택적, 디버깅용)"
+    }
+  ]
+}

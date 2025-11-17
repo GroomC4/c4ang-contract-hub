@@ -1,0 +1,61 @@
+{
+  "type": "record",
+  "name": "UserInternalResponse",
+  "namespace": "com.groom.ecommerce.customer.api.avro",
+  "doc": "K8s 내부 사용자 조회 API 응답 - GET /internal/v1/users/{userId}",
+  "fields": [
+    {
+      "name": "userId",
+      "type": "string",
+      "doc": "사용자 고유 ID (UUID)"
+    },
+    {
+      "name": "username",
+      "type": "string",
+      "doc": "사용자명"
+    },
+    {
+      "name": "email",
+      "type": "string",
+      "doc": "이메일 주소"
+    },
+    {
+      "name": "role",
+      "type": {
+        "type": "enum",
+        "name": "UserRole",
+        "symbols": ["CUSTOMER", "OWNER", "ADMIN"]
+      },
+      "doc": "사용자 역할"
+    },
+    {
+      "name": "isActive",
+      "type": "boolean",
+      "doc": "활성 상태 (탈퇴하지 않은 사용자)"
+    },
+    {
+      "name": "profile",
+      "type": "com.groom.ecommerce.customer.api.avro.UserProfileInternal",
+      "doc": "사용자 프로필 정보"
+    },
+    {
+      "name": "createdAt",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "계정 생성일시"
+    },
+    {
+      "name": "updatedAt",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "최종 수정일시"
+    },
+    {
+      "name": "lastLoginAt",
+      "type": ["null", "long"],
+      "logicalType": "timestamp-millis",
+      "default": null,
+      "doc": "마지막 로그인 일시 (없을 수 있음)"
+    }
+  ]
+}

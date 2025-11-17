@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "name": "UserProfileInternal",
+  "namespace": "com.groom.ecommerce.customer.api.avro",
+  "doc": "사용자 프로필 정보 (UserInternalResponse에 포함되는 중첩 타입)",
+  "fields": [
+    {
+      "name": "fullName",
+      "type": "string",
+      "doc": "실명 (본명)"
+    },
+    {
+      "name": "phoneNumber",
+      "type": "string",
+      "doc": "전화번호 (E.164 형식 권장: +82-10-1234-5678)"
+    },
+    {
+      "name": "address",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "기본 배송 주소 (설정하지 않았을 수 있음)"
+    }
+  ]
+}
