@@ -21,7 +21,7 @@ import java.io.File
 open class AvroDocGenerator : DefaultTask() {
 
     @InputDirectory
-    val avroSchemaDir = project.file("src/main/avro/events")
+    val avroSchemaDir = project.file("src/main/events/avro")
 
     @OutputDirectory
     val outputDir = project.file("docs/generated")
@@ -29,7 +29,9 @@ open class AvroDocGenerator : DefaultTask() {
     @TaskAction
     fun generate() {
         val mapper = ObjectMapper().registerKotlinModule()
-        val avroFiles = avroSchemaDir.listFiles { file -> file.extension == "avsc" } ?: emptyArray()
+        val avroFiles = avroSchemaDir.walkTopDown()
+            .filter { it.isFile && it.extension == "avsc" }
+            .toList()
 
         outputDir.mkdirs()
 
@@ -109,7 +111,7 @@ open class AvroDocGenerator : DefaultTask() {
         generatedSpec.appendLine()
         generatedSpec.appendLine()
         generatedSpec.appendLine("> ⚠️ 이 섹션은 자동 생성됩니다. `./gradlew generateAvroEventDocs`를 실행하면 업데이트됩니다.")
-        generatedSpec.appendLine("> 명세를 수정하려면 `src/main/avro/events/*.avsc` 파일을 수정하세요.")
+        generatedSpec.appendLine("> 명세를 수정하려면 `src/main/events/avro/*.avsc` 파일을 수정하세요.")
         generatedSpec.appendLine()
 
         referencedEvents.forEachIndexed { index, eventName ->
@@ -151,7 +153,7 @@ open class AvroDocGenerator : DefaultTask() {
         markdown.appendLine()
         markdown.appendLine("**설명**: $doc")
         markdown.appendLine()
-        markdown.appendLine("**Avro 스키마**: `src/main/avro/events/${schemaInfo.file.name}`")
+        markdown.appendLine("**Avro 스키마**: `src/main/events/avro/${schemaInfo.file.name}`")
         markdown.appendLine()
         markdown.appendLine("**Kafka 토픽**: `$topic`")
         markdown.appendLine()
@@ -185,7 +187,7 @@ open class AvroDocGenerator : DefaultTask() {
         val markdown = StringBuilder()
         markdown.appendLine("**Kafka 토픽**: `$topic`")
         markdown.appendLine()
-        markdown.appendLine("**Avro 스키마**: `src/main/avro/events/${schemaInfo.file.name}`")
+        markdown.appendLine("**Avro 스키마**: `src/main/events/avro/${schemaInfo.file.name}`")
         markdown.appendLine()
 
         markdown.appendLine("**필드**:")
