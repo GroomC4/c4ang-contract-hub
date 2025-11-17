@@ -34,10 +34,20 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
-    // Avro - 이벤트 스키마 및 직렬화
+    // Avro - 이벤트/API 스키마 및 직렬화
     implementation("org.apache.avro:avro:1.11.3")
     implementation("io.confluent:kafka-avro-serializer:7.5.1")
     implementation("io.confluent:kafka-schema-registry-client:7.5.1")
+}
+
+// Avro 소스 디렉토리 설정 (events와 api 모두 포함)
+sourceSets {
+    main {
+        java {
+            // Avro 플러그인이 생성한 Java 클래스
+            srcDir("build/generated-main-avro-java")
+        }
+    }
 }
 
 avro {
@@ -46,6 +56,12 @@ avro {
     setGettersReturnOptional(false)
     setOptionalGettersForNullableFieldsOnly(false)
     setStringType("String")
+}
+
+// Avro 스키마 경로 설정
+tasks.named<com.github.davidmc24.gradle.plugin.avro.GenerateAvroJavaTask>("generateAvroJava") {
+    // src/main/events/avro 와 src/main/api/avro 모두 인식
+    source("src/main/events/avro", "src/main/api/avro")
 }
 
 
@@ -88,5 +104,9 @@ idea {
     module {
         // Avro 플러그인이 생성한 Java class를 소스 디렉토리로 인식
         generatedSourceDirs.add(file("build/generated-main-avro-java"))
+
+        // Avro 스키마 파일을 리소스로 인식 (events와 api)
+        resourceDirs.add(file("src/main/events/avro"))
+        resourceDirs.add(file("src/main/api/avro"))
     }
 }
