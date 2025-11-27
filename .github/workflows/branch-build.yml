@@ -30,7 +30,7 @@ jobs:
       - name: Count Avro schemas
         id: count_schemas
         run: |
-          AVRO_COUNT=$(find src/main/avro -name "*.avsc" | wc -l)
+          AVRO_COUNT=$(find src/main/events/avro src/main/api/avro -name "*.avsc" 2>/dev/null | wc -l)
           echo "count=$AVRO_COUNT" >> $GITHUB_OUTPUT
           echo "📋 Found $AVRO_COUNT Avro schema files"
 
@@ -45,7 +45,7 @@ jobs:
 
           # 각 스키마 파일의 JSON 문법 체크
           INVALID_COUNT=0
-          for file in $(find src/main/avro -name "*.avsc"); do
+          for file in $(find src/main/events/avro src/main/api/avro -name "*.avsc"); do
             if ! python3 -m json.tool "$file" > /dev/null 2>&1; then
               echo "❌ Invalid JSON in $file"
               INVALID_COUNT=$((INVALID_COUNT + 1))
@@ -74,7 +74,7 @@ jobs:
           fi
 
           # 변경된 스키마 파일 찾기
-          CHANGED_SCHEMAS=$(git diff --name-only origin/$BASE_BRANCH...HEAD -- 'src/main/avro/**/*.avsc' || echo "")
+          CHANGED_SCHEMAS=$(git diff --name-only origin/$BASE_BRANCH...HEAD -- 'src/main/events/avro/**/*.avsc' 'src/main/api/avro/**/*.avsc' || echo "")
 
           if [ -z "$CHANGED_SCHEMAS" ]; then
             echo "ℹ️ No schema changes detected"

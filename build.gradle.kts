@@ -6,9 +6,9 @@ plugins {
     idea
 }
 
-// JitPack 배포를 위한 group 설정
-group = "com.github.GroomC4"  // JitPack: com.github.{GitHub_조직명}
-version = "1.0.0"  // 첫 정식 릴리스
+// GitHub Packages 배포를 위한 group 설정
+group = "io.github.groomc4"  // GitHub Packages: io.github.{조직명_소문자}
+version = "1.1.0"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -77,13 +77,38 @@ tasks.named("build") {
 // Publishing 설정
 publishing {
     publications {
-        // JitPack은 기본 'java' component를 자동으로 사용
-        // 별도 설정 없어도 동작하지만, 명시적으로 정의 가능
-        create<MavenPublication>("release") {
+        create<MavenPublication>("gpr") {
             from(components["java"])
 
-            // Artifact 커스터마이징 (선택 사항)
-            // artifactId = "c4ang-contract-hub"  // 기본값: 프로젝트 이름
+            groupId = project.group.toString()
+            artifactId = "c4ang-contract-hub"
+            version = project.version.toString()
+
+            pom {
+                name.set("C4ANG Contract Hub")
+                description.set("동기/비동기 통신 스키마 통합 관리 라이브러리")
+                url.set("https://github.com/GroomC4/c4ang-contract-hub")
+
+                licenses {
+                    license {
+                        name.set("MIT License")
+                        url.set("https://opensource.org/licenses/MIT")
+                    }
+                }
+
+                developers {
+                    developer {
+                        id.set("GroomC4")
+                        name.set("GroomC4 Team")
+                    }
+                }
+
+                scm {
+                    connection.set("scm:git:git://github.com/GroomC4/c4ang-contract-hub.git")
+                    developerConnection.set("scm:git:ssh://github.com/GroomC4/c4ang-contract-hub.git")
+                    url.set("https://github.com/GroomC4/c4ang-contract-hub")
+                }
+            }
         }
     }
 
@@ -91,9 +116,15 @@ publishing {
         // Maven Local (로컬 테스트용)
         mavenLocal()
 
-        // JitPack은 별도 repository 설정 불필요
-        // Git Tag만 Push하면 자동으로 빌드됨
-        // 사용법: https://jitpack.io/#your-username/c4ang-contract-hub
+        // GitHub Packages (중앙 패키지 허브로 배포)
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/GroomC4/c4ang-packages-hub")
+            credentials {
+                username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+                password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+            }
+        }
     }
 }
 
