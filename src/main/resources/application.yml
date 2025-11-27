@@ -2,26 +2,9 @@ spring:
   application:
     name: c4ang-contract-hub
 
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      group-id: ${spring.application.name}
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
-      properties:
-        schema.registry.url: http://localhost:8081
-        specific.avro.reader: true
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
-      properties:
-        schema.registry.url: http://localhost:8081
-
-server:
-  port: 8080
+# Kafka/Schema Registry 설정은 c4ang-platform-core에서 관리합니다.
+# 이 프로젝트는 Avro 스키마 정의와 생성된 Java 클래스만 제공하는 라이브러리입니다.
 
 logging:
   level:
     com.c4ang: DEBUG
-    org.springframework.cloud.contract: DEBUG
