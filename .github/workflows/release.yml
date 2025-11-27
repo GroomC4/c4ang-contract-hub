@@ -57,7 +57,7 @@ jobs:
         run: ./gradlew publish --no-daemon
         env:
           GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.PACKAGES_HUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GROOM_GITHUB_ACTION_TOKEN }}
 
       - name: Get generated class count
         id: count_classes
