@@ -57,7 +57,7 @@ jobs:
         run: ./gradlew publish --no-daemon
         env:
           GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PACKAGES_HUB_TOKEN }}
 
       - name: Get generated class count
         id: count_classes
@@ -185,7 +185,7 @@ jobs:
           ```kotlin
           repositories {
               maven {
-                  url = uri("https://maven.pkg.github.com/GroomC4/c4ang-contract-hub")
+                  url = uri("https://maven.pkg.github.com/GroomC4/c4ang-packages-hub")
                   credentials {
                       username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
                       password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
@@ -222,7 +222,7 @@ jobs:
 
           ### 🔗 Links
 
-          - [GitHub Packages](https://github.com/GroomC4/c4ang-contract-hub/packages)
+          - [GitHub Packages](https://github.com/GroomC4/c4ang-packages-hub/packages)
           - [Documentation](https://github.com/GroomC4/c4ang-contract-hub#readme)
           - [Kafka Event Specifications](https://github.com/GroomC4/c4ang-contract-hub/blob/main/docs/interface/kafka-event-specifications.md)
           - [Event Sequence Diagrams](https://github.com/GroomC4/c4ang-contract-hub/blob/main/docs/interface/kafka-event-sequence.md)
@@ -259,7 +259,7 @@ jobs:
           echo "📦 Artifact is now available on GitHub Packages:"
           echo "    implementation(\"io.github.groomc4:c4ang-contract-hub:$VERSION\")"
           echo ""
-          echo "🔗 GitHub Packages: https://github.com/GroomC4/c4ang-contract-hub/packages"
+          echo "🔗 GitHub Packages: https://github.com/GroomC4/c4ang-packages-hub/packages"
           echo "🔗 GitHub Release: https://github.com/GroomC4/c4ang-contract-hub/releases/tag/v$VERSION"
 
       - name: Display release summary

@@ -116,10 +116,10 @@ publishing {
         // Maven Local (로컬 테스트용)
         mavenLocal()
 
-        // GitHub Packages
+        // GitHub Packages (중앙 패키지 허브로 배포)
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/GroomC4/c4ang-contract-hub")
+            url = uri("https://maven.pkg.github.com/GroomC4/c4ang-packages-hub")
             credentials {
                 username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
                 password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
