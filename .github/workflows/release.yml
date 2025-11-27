@@ -12,6 +12,7 @@ jobs:
 
     permissions:
       contents: write  # GitHub Release 생성 권한
+      packages: write  # GitHub Packages 배포 권한
 
     steps:
       - name: Checkout code
@@ -51,6 +52,12 @@ jobs:
 
       - name: Package artifacts
         run: ./gradlew assemble --no-daemon
+
+      - name: Publish to GitHub Packages
+        run: ./gradlew publish --no-daemon
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get generated class count
         id: count_classes
@@ -177,11 +184,17 @@ jobs:
 
           ```kotlin
           repositories {
-              maven { url = uri("https://jitpack.io") }
+              maven {
+                  url = uri("https://maven.pkg.github.com/GroomC4/c4ang-contract-hub")
+                  credentials {
+                      username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+                      password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+                  }
+              }
           }
 
           dependencies {
-              implementation("com.github.GroomC4:c4ang-contract-hub:${{ steps.version.outputs.version }}")
+              implementation("io.github.groomc4:c4ang-contract-hub:${{ steps.version.outputs.version }}")
           }
           ```
 
@@ -205,18 +218,18 @@ jobs:
           - ✅ **Avro Schema Management**: 도메인별 스키마 정의 (Order, Payment, Product, SAGA 등)
           - ✅ **Java Class Generation**: Avro → Java (Kotlin interop 지원)
           - ✅ **Event Flow Documentation**: 이벤트 시퀀스 다이어그램 및 명세
-          - ✅ **JitPack Distribution**: 간편한 의존성 추가
+          - ✅ **GitHub Packages Distribution**: 안전한 패키지 배포
 
           ### 🔗 Links
 
-          - [JitPack Build](https://jitpack.io/#GroomC4/c4ang-contract-hub/${{ steps.version.outputs.version }})
+          - [GitHub Packages](https://github.com/GroomC4/c4ang-contract-hub/packages)
           - [Documentation](https://github.com/GroomC4/c4ang-contract-hub#readme)
           - [Kafka Event Specifications](https://github.com/GroomC4/c4ang-contract-hub/blob/main/docs/interface/kafka-event-specifications.md)
           - [Event Sequence Diagrams](https://github.com/GroomC4/c4ang-contract-hub/blob/main/docs/interface/kafka-event-sequence.md)
 
           ### 📋 Documentation
 
-          - [JitPack Publishing Guide](docs/publishing/jitpack-publishing-guide.md)
+          - [GitHub Packages Publishing Guide](docs/publishing/github-packages-publishing-guide.md)
           - [Avro Artifact Publishing](docs/publishing/avro-artifact-publishing.md)
 
           ---
@@ -237,21 +250,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Trigger JitPack build
+      - name: Display package info
         run: |
           VERSION=${{ steps.version.outputs.version }}
-          echo "🔨 Triggering JitPack build for version $VERSION..."
-
-          # JitPack build trigger
-          curl -s "https://jitpack.io/api/builds/com.github.GroomC4/c4ang-contract-hub/$VERSION" || true
-
           echo ""
           echo "✅ Release $VERSION completed!"
           echo ""
-          echo "📦 Artifact is now available on JitPack:"
-          echo "    implementation(\"com.github.GroomC4:c4ang-contract-hub:$VERSION\")"
+          echo "📦 Artifact is now available on GitHub Packages:"
+          echo "    implementation(\"io.github.groomc4:c4ang-contract-hub:$VERSION\")"
           echo ""
-          echo "🔗 JitPack: https://jitpack.io/#GroomC4/c4ang-contract-hub/$VERSION"
+          echo "🔗 GitHub Packages: https://github.com/GroomC4/c4ang-contract-hub/packages"
           echo "🔗 GitHub Release: https://github.com/GroomC4/c4ang-contract-hub/releases/tag/v$VERSION"
 
       - name: Display release summary
