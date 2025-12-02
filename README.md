@@ -19,7 +19,7 @@ Apache Avro 스키마로 데이터 구조를 정의하고, Java class를 자동 
 - **Serialization**: Apache Avro + Confluent Schema Registry
 - **Build Tool**: Gradle 8.5 (Kotlin DSL)
 - **Language**: Java 21
-- **Distribution**: JitPack / Maven Local
+- **Distribution**: GitHub Packages / Maven Local
 
 ## 🎯 핵심 책임
 
@@ -49,7 +49,7 @@ Apache Avro 스키마로 데이터 구조를 정의하고, Java class를 자동 
 
 **주요 기능:**
 - Gradle Avro Plugin을 통한 Java class 생성 (SpecificRecord)
-- JitPack을 통한 artifact 배포
+- GitHub Packages를 통한 artifact 배포
 - Producer/Consumer 서비스에서 의존성으로 추가 가능
 - Kotlin 프로젝트에서도 사용 가능
 - Confluent Kafka Avro Serializer 지원
@@ -140,7 +140,7 @@ c4ang-contract-hub/
 │   │   ├── kafka-event-specifications.md  # 이벤트 명세 (v2.0)
 │   │   └── kafka-event-sequence.md        # 이벤트 시퀀스 다이어그램
 │   └── publishing/             # 배포 가이드
-│       ├── jitpack-publishing-guide.md    # JitPack 배포
+│       ├── github-packages-guide.md       # GitHub Packages 배포
 │       └── avro-artifact-publishing.md    # Avro 클래스 배포
 │
 ├── buildSrc/                   # 빌드 스크립트
@@ -179,22 +179,22 @@ c4ang-contract-hub/
 ./gradlew publishToMavenLocal
 ```
 
-### JitPack 배포
+### GitHub Packages 배포
 
-[![](https://jitpack.io/v/GroomC4/c4ang-contract-hub.svg)](https://jitpack.io/#GroomC4/c4ang-contract-hub)
+현재 최신 버전: **1.1.0**
 
-현재 최신 버전: **v1.0.0**
+이 프로젝트는 Organization 레벨에서 통일된 **GitHub Packages**를 통해 배포됩니다.
 
 ```bash
 # 1. Git Tag 생성 및 Push
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.1.0
+git push origin v1.1.0
 
-# 2. JitPack 자동 빌드
-# https://jitpack.io/#GroomC4/c4ang-contract-hub
+# 2. GitHub Actions 자동 배포
+# main 브랜치 push 또는 tag push 시 자동으로 GitHub Packages에 배포됩니다.
 ```
 
-**상세 가이드**: [JitPack 배포 가이드](docs/publishing/jitpack-publishing-guide.md)
+**상세 가이드**: [GitHub Packages 배포 가이드](docs/publishing/github-packages-guide.md)
 
 ## 📖 사용 가이드
 
@@ -207,12 +207,19 @@ git push origin v1.0.0
 
 repositories {
     mavenCentral()
-    maven { url = uri("https://jitpack.io") }  // JitPack 저장소 추가
+    // GitHub Packages (중앙 패키지 허브)
+    maven {
+        url = uri("https://maven.pkg.github.com/GroomC4/c4ang-packages-hub")
+        credentials {
+            username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+            password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
 }
 
 dependencies {
-    // Contract Hub: 이벤트 + API 스키마 (v1.0.0)
-    implementation("com.github.GroomC4:c4ang-contract-hub:v1.0.0")
+    // Contract Hub: 이벤트 + API 스키마
+    implementation("io.github.groomc4:c4ang-contract-hub:1.1.0")
 
     // Kafka 및 Avro 의존성 (이벤트용)
     implementation("org.springframework.kafka:spring-kafka")
@@ -220,6 +227,8 @@ dependencies {
     implementation("io.confluent:kafka-avro-serializer:7.5.1")
 }
 ```
+
+> **Note**: GitHub Packages 인증을 위해 `GITHUB_TOKEN` 환경변수 또는 `~/.gradle/gradle.properties`에 `gpr.user`와 `gpr.key`를 설정해야 합니다.
 
 #### 2. Producer에서 이벤트 발행
 
@@ -428,7 +437,7 @@ contract {
 
 3. **릴리스 배포** (`release.yml`)
    - Git Tag 생성 시 자동 실행
-   - JitPack 배포
+   - GitHub Packages 배포
 
 ### 버전 관리 전략
 
@@ -447,7 +456,7 @@ contract {
 - [Kafka 이벤트 시퀀스](docs/interface/kafka-event-sequence.md)
 
 ### 배포 가이드
-- [JitPack 배포 가이드](docs/publishing/jitpack-publishing-guide.md)
+- [GitHub Packages 배포 가이드](docs/publishing/github-packages-guide.md)
 - [Avro Artifact 배포 가이드](docs/publishing/avro-artifact-publishing.md)
 
 ## 🤝 기여하기

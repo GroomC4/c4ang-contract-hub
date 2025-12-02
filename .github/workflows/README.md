@@ -33,7 +33,7 @@ on:
 - ✅ **Java 클래스 생성 검증**: 생성 가능 여부 확인
 - ✅ **프로젝트 빌드**: 전체 빌드 테스트
 - ✅ **문서 생성**: Avro 문서 자동 생성
-- 📦 **SNAPSHOT 아티팩트**: JitPack SNAPSHOT 사용 가능
+- 📦 **아티팩트 확인**: 빌드 아티팩트 생성 및 확인
 
 ### 검증 내용
 1. **스키마 문법 검증**: 각 `.avsc` 파일이 유효한 JSON인지 체크
@@ -47,13 +47,6 @@ on:
 - **보관 기간**: 7일
 - **내용**: JAR, 생성된 Java 클래스, 문서
 - **이름**: `build-artifacts-{branch-name}`
-
-### SNAPSHOT 사용법
-```kotlin
-dependencies {
-    implementation("com.github.GroomC4:c4ang-contract-hub:feature-new-schema-SNAPSHOT")
-}
-```
 
 ---
 
@@ -113,7 +106,7 @@ on:
 ## 3. Release (정식 배포)
 
 **파일**: `release.yml`
-**목적**: 버전 태그 생성 시 자동으로 릴리스 및 JitPack 배포
+**목적**: 버전 태그 생성 시 자동으로 릴리스 및 GitHub Packages 배포
 
 ### 트리거
 ```yaml
@@ -128,7 +121,7 @@ on:
 - 📝 **스키마 변경 내역**: 이전 릴리스와 diff 생성
 - ⚠️ **Breaking Change 하이라이트**: 호환성 문제 강조
 - 🚀 **GitHub Release 생성**: 릴리스 노트 자동 생성
-- 🔨 **JitPack 빌드 트리거**: 자동 배포
+- 🔨 **GitHub Packages 배포**: 중앙 패키지 허브로 자동 배포
 - 📦 **아티팩트 배포**: JAR 및 문서 첨부
 
 ### 릴리스 생성 방법
@@ -141,7 +134,7 @@ git push origin v1.0.0
 
 # 3. 워크플로우 자동 실행
 #    - GitHub Release 생성
-#    - JitPack 빌드 트리거
+#    - GitHub Packages 배포
 #    - 릴리스 노트 자동 생성
 ```
 
@@ -229,7 +222,7 @@ graph TD
     E -->|승인| F[Merge to main]
     F -->|스키마 변경 감지| G[Documentation Deploy]
     F -->|태그 생성| H[Release]
-    H -->|JitPack 배포| I[서비스에서 사용]
+    H -->|깃헙패키지 배포| I[서비스에서 사용]
 ```
 
 ### 상세 시나리오
@@ -270,10 +263,10 @@ graph TD
 11. [Release] 자동 실행
     - 📝 스키마 변경 diff 생성
     - 🚀 GitHub Release 생성
-    - 🔨 JitPack 빌드 트리거
+    - 🔨 GitHub Packages 배포
    ↓
 12. 각 서비스에서 사용
-    implementation("com.github.GroomC4:c4ang-contract-hub:1.1.0")
+    implementation("io.github.groomc4:c4ang-contract-hub:1.1.0")
 ```
 
 ---
@@ -370,22 +363,17 @@ grep -E '^\-.*"name".*:|^\-.*"type".*:'
 - ✅ `main` 브랜치에 푸시했는지 확인
 - ✅ `src/main/avro/` 디렉토리의 파일이 변경되었는지 확인
 
-### JitPack 빌드 실패
-
-```bash
-# JitPack 빌드 로그 확인
-https://jitpack.io/com/github/GroomC4/c4ang-contract-hub/{version}/build.log
-```
+### GitHub Packages 배포 실패
 
 **일반적인 원인**:
+- `GITHUB_TOKEN` 권한 부족
 - `build.gradle.kts`의 `group` 또는 `version` 설정 오류
-- JDK 버전 불일치
-- 의존성 다운로드 실패
+- 네트워크 문제
 
 **해결 방법**:
 1. 로컬에서 `./gradlew clean build publishToMavenLocal` 테스트
-2. JitPack이 Java 21을 지원하는지 확인
-3. `jitpack.yml` 파일로 JDK 버전 명시
+2. GitHub Actions의 `permissions` 설정 확인 (`packages: write`)
+3. Organization 토큰 (`GROOM_GITHUB_ACTION_TOKEN`) 권한 확인
 
 ### Breaking Change 오탐지
 
@@ -467,7 +455,7 @@ git push origin v2.0.0
 ## 참고 문서
 
 - [README.md](../../README.md) - 프로젝트 전체 가이드
-- [JitPack Publishing Guide](../../docs/publishing/jitpack-publishing-guide.md)
+- [GitHub Packages 배포 가이드](../../docs/publishing/github-packages-guide.md)
 - [Avro Artifact Publishing](../../docs/publishing/avro-artifact-publishing.md)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 
