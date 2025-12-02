@@ -54,20 +54,30 @@ X-Request-ID: {UUID}  # 선택, 요청 추적용
 
 ### 성공 응답 (200 OK)
 
-**응답 DTO:**
-```
-StoreInternalDto
-├── storeId: String           # 스토어 고유 ID
-├── ownerUserId: String       # 소유자 사용자 ID
-├── name: String              # 스토어 이름
-├── description: String?      # 스토어 설명
-├── status: String            # 상태 (REGISTERED, SUSPENDED, HIDDEN, DELETED)
-├── averageRating: Double?    # 평균 평점
-├── reviewCount: Int?         # 리뷰 수
-├── launchedAt: LocalDateTime?# 오픈 일시
-├── createdAt: LocalDateTime  # 생성 일시
-└── updatedAt: LocalDateTime  # 수정 일시
-```
+**Avro Schema:** [`StoreInternalResponse.avsc`](../../src/main/api/avro/store/StoreInternalResponse.avsc)
+
+**필드 정의:**
+
+| 필드 | 타입 | 필수 | 설명 |
+|-----|------|-----|------|
+| `storeId` | string | O | 스토어 고유 ID (UUID) |
+| `ownerUserId` | string | O | 소유자 사용자 ID (UUID) |
+| `name` | string | O | 스토어 이름 |
+| `description` | string? | X | 스토어 설명 |
+| `status` | StoreStatus | O | 상태 (REGISTERED, SUSPENDED, DELETED) |
+| `averageRating` | double? | X | 평균 평점 (리뷰가 없으면 null) |
+| `reviewCount` | int | O | 리뷰 수 (기본값 0) |
+| `launchedAt` | timestamp-millis? | X | 스토어 오픈 일시 |
+| `createdAt` | timestamp-millis | O | 생성일시 |
+| `updatedAt` | timestamp-millis | O | 수정일시 |
+
+**StoreStatus Enum:**
+
+| 값 | 설명 |
+|---|------|
+| `REGISTERED` | 정상 운영 중 |
+| `SUSPENDED` | 관리자에 의해 정지됨 |
+| `DELETED` | 삭제됨 (소프트 삭제) |
 
 **응답 예시:**
 ```json
