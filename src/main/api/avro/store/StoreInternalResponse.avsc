@@ -1,0 +1,70 @@
+{
+  "type": "record",
+  "name": "StoreInternalResponse",
+  "namespace": "com.groom.ecommerce.store.api.avro",
+  "doc": "K8s 내부 스토어 조회 API 응답 - GET /internal/v1/stores/{storeId}, GET /internal/v1/stores/owner/{ownerId}",
+  "fields": [
+    {
+      "name": "storeId",
+      "type": "string",
+      "doc": "스토어 고유 ID (UUID)"
+    },
+    {
+      "name": "ownerUserId",
+      "type": "string",
+      "doc": "스토어 소유자 사용자 ID (UUID)"
+    },
+    {
+      "name": "name",
+      "type": "string",
+      "doc": "스토어 이름"
+    },
+    {
+      "name": "description",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "스토어 설명 (없을 수 있음)"
+    },
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "StoreStatus",
+        "doc": "스토어 상태",
+        "symbols": ["REGISTERED", "SUSPENDED", "DELETED"]
+      },
+      "doc": "스토어 상태 - REGISTERED: 정상 운영, SUSPENDED: 정지됨, DELETED: 삭제됨"
+    },
+    {
+      "name": "averageRating",
+      "type": ["null", "double"],
+      "default": null,
+      "doc": "평균 평점 (리뷰가 없으면 null)"
+    },
+    {
+      "name": "reviewCount",
+      "type": "int",
+      "default": 0,
+      "doc": "리뷰 수"
+    },
+    {
+      "name": "launchedAt",
+      "type": ["null", "long"],
+      "logicalType": "timestamp-millis",
+      "default": null,
+      "doc": "스토어 오픈 일시 (오픈 전이면 null)"
+    },
+    {
+      "name": "createdAt",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "스토어 생성일시"
+    },
+    {
+      "name": "updatedAt",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "최종 수정일시"
+    }
+  ]
+}

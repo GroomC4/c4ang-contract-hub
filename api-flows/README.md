@@ -74,7 +74,15 @@ K8s 클러스터 내부 서비스 간 동기 API 호출 흐름을 정리한 문�
 ---
 
 ### 3. Store Service
-매장 정보 조회 (추후 추가 예정)
+매장 정보 조회
+
+**APIs:**
+- [Internal Store API](./store-service/internal-store-api.md) - 스토어 조회
+
+**주요 사용처:**
+- Product Service: 상품 등록 시 스토어 소유자 검증 및 스토어 이름 조회
+
+[📂 Store Service 디렉토리](./store-service/)
 
 ---
 

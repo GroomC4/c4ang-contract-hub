@@ -2,12 +2,14 @@
 
 ## 개요
 
-이 프로젝트는 두 가지 Artifact를 배포합니다:
+이 프로젝트는 **Avro 스키마 기반 Java 클래스**를 배포합니다:
 
-1. **Contract Stubs** (`c4ang-contract-stubs`) - Spring Cloud Contract Stub
-2. **Avro 클래스** (`c4ang-avro-events`) - Kafka 이벤트 데이터 클래스 (신규 추가)
+- **이벤트 스키마**: Kafka 비동기 통신용 (23개 이벤트)
+- **API 스키마**: HTTP 동기 통신용 (4개 API)
 
 다른 서비스(Producer, Consumer)는 이 Avro 클래스를 의존성으로 추가하여 사용할 수 있습니다.
+
+**배포 방식**: GitHub Packages (Organization 레벨 통일)
 
 ---
 
@@ -22,39 +24,28 @@
 
 **결과**:
 ```
-~/.m2/repository/com/c4ang/
-├── c4ang-contract-stubs/
-│   └── 1.0.0-SNAPSHOT/
-│       └── c4ang-contract-stubs-1.0.0-SNAPSHOT-stubs.jar
-└── c4ang-avro-events/
-    └── 1.0.0-SNAPSHOT/
-        ├── c4ang-avro-events-1.0.0-SNAPSHOT.jar       ← Avro 클래스
-        └── c4ang-avro-events-1.0.0-SNAPSHOT-sources.jar
+~/.m2/repository/io/github/groomc4/
+└── c4ang-contract-hub/
+    └── 1.1.0/
+        ├── c4ang-contract-hub-1.1.0.jar       ← Avro 클래스
+        └── c4ang-contract-hub-1.1.0-sources.jar
 ```
 
-### 2. 회사 내부 Maven Repository에 배포 (실제 배포)
+### 2. GitHub Packages에 배포 (실제 배포)
 
-**build.gradle.kts 주석 해제**:
-```kotlin
-publishing {
-    repositories {
-        maven {
-            name = "CompanyRepo"
-            url = uri("https://maven.your-company.com/releases")
-            credentials {
-                username = project.findProperty("maven.username") as String? ?: System.getenv("MAVEN_USERNAME")
-                password = project.findProperty("maven.password") as String? ?: System.getenv("MAVEN_PASSWORD")
-            }
-        }
-    }
-}
+**자동 배포 (권장)**:
+```bash
+# 버전 업데이트 후 태그 생성
+git tag v1.1.0
+git push origin v1.1.0
+# → GitHub Actions가 자동으로 GitHub Packages에 배포
 ```
 
-**배포 실행**:
+**수동 배포**:
 ```bash
 # 자격증명 설정
-export MAVEN_USERNAME=your-username
-export MAVEN_PASSWORD=your-password
+export GITHUB_ACTOR=your-username
+export GITHUB_TOKEN=ghp_xxxxxxxxxxxxx
 
 # 배포
 ./gradlew publish
@@ -62,9 +53,11 @@ export MAVEN_PASSWORD=your-password
 
 또는 `~/.gradle/gradle.properties`에 저장:
 ```properties
-maven.username=your-username
-maven.password=your-password
+gpr.user=your-username
+gpr.key=ghp_xxxxxxxxxxxxx
 ```
+
+**상세 가이드**: [GitHub Packages 배포 가이드](github-packages-guide.md)
 
 ---
 
@@ -79,16 +72,19 @@ maven.password=your-password
 
 repositories {
     mavenCentral()
-    mavenLocal()  // 로컬 테스트 시
-    // 또는
-    // maven {
-    //     url = uri("https://maven.your-company.com/releases")
-    // }
+    // GitHub Packages (중앙 패키지 허브)
+    maven {
+        url = uri("https://maven.pkg.github.com/GroomC4/c4ang-packages-hub")
+        credentials {
+            username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+            password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
 }
 
 dependencies {
-    // Avro 이벤트 클래스 의존성 추가
-    implementation("com.c4ang:c4ang-avro-events:1.0.0-SNAPSHOT")
+    // Contract Hub: 이벤트 + API 스키마
+    implementation("io.github.groomc4:c4ang-contract-hub:1.1.0")
 
     // Kafka 및 Avro 의존성
     implementation("org.springframework.kafka:spring-kafka")
@@ -168,9 +164,21 @@ spring:
 ```kotlin
 // payment-service/build.gradle.kts
 
+repositories {
+    mavenCentral()
+    // GitHub Packages (중앙 패키지 허브)
+    maven {
+        url = uri("https://maven.pkg.github.com/GroomC4/c4ang-packages-hub")
+        credentials {
+            username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+            password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
+}
+
 dependencies {
-    // Avro 이벤트 클래스 의존성 추가
-    implementation("com.c4ang:c4ang-avro-events:1.0.0-SNAPSHOT")
+    // Contract Hub: 이벤트 + API 스키마
+    implementation("io.github.groomc4:c4ang-contract-hub:1.1.0")
 
     implementation("org.springframework.kafka:spring-kafka")
     implementation("io.confluent:kafka-avro-serializer:7.5.1")
@@ -230,17 +238,22 @@ spring:
 
 ## 배포된 Artifact 구조
 
-### c4ang-avro-events JAR 내부
+### c4ang-contract-hub JAR 내부
 
 ```
-c4ang-avro-events-1.0.0-SNAPSHOT.jar
-├── com/c4ang/events/
-│   ├── common/
-│   │   └── EventMetadata.class
-│   └── order/
-│       ├── OrderCreatedEvent.class
-│       ├── OrderCreatedEvent$Builder.class
-│       └── OrderStatus.class
+c4ang-contract-hub-1.1.0.jar
+├── com/groom/ecommerce/
+│   ├── order/event/avro/
+│   │   ├── OrderCreated.class
+│   │   ├── OrderCreated$Builder.class
+│   │   └── OrderStatus.class
+│   ├── payment/event/avro/
+│   │   └── PaymentCompleted.class
+│   ├── customer/api/avro/
+│   │   └── UserInternalResponse.class
+│   └── common/
+│       ├── event/avro/EventMetadata.class
+│       └── api/avro/ErrorResponse.class
 └── avro/
     └── *.avsc (원본 스키마 포함)
 ```
@@ -263,7 +276,6 @@ c4ang-avro-events-1.0.0-SNAPSHOT.jar
 ### Semantic Versioning 사용
 
 ```
-1.0.0-SNAPSHOT  → 개발 중
 1.0.0           → 첫 정식 릴리스
 1.1.0           → 새 필드 추가 (하위 호환)
 2.0.0           → Breaking Change (하위 호환 불가)
@@ -272,7 +284,7 @@ c4ang-avro-events-1.0.0-SNAPSHOT.jar
 ### build.gradle.kts 버전 업데이트
 
 ```kotlin
-group = "com.c4ang"
+group = "io.github.groomc4"
 version = "1.1.0"  // 버전 변경
 ```
 
@@ -296,41 +308,38 @@ version = "1.1.0"  // 버전 변경
 ### GitHub Actions 예시
 
 ```yaml
-# .github/workflows/publish-avro.yml
-name: Publish Avro Artifacts
+# .github/workflows/release.yml
+name: Release
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
+    permissions:
+      contents: read
+      packages: write
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
-      - name: Publish to Maven Repository
-        env:
-          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-        run: ./gradlew publish
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
-      - name: Notify Slack
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          text: 'Avro artifacts published: ${{ github.ref }}'
+      - name: Publish to GitHub Packages
+        run: ./gradlew publish
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GROOM_GITHUB_ACTION_TOKEN }}
 ```
 
 ---
@@ -374,14 +383,17 @@ event.setDeliveryAddress("서울시 강남구...")
 
 ```bash
 # 버전 업데이트
-# build.gradle.kts: version = "1.1.0"
+# build.gradle.kts: version = "1.2.0"
 
-# Maven Repository에 배포
-./gradlew publish
+# Git 커밋 및 태그
+git add .
+git commit -m "chore: version bump to 1.2.0"
+git push origin main
 
-# Git 태그
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.2.0
+git push origin v1.2.0
+
+# → GitHub Actions가 자동으로 GitHub Packages에 배포
 ```
 
 ### 5. 다른 서비스 버전 업데이트
@@ -389,7 +401,7 @@ git push origin v1.1.0
 ```kotlin
 // order-service/build.gradle.kts
 dependencies {
-    implementation("com.c4ang:c4ang-avro-events:1.1.0")  // 버전 업데이트
+    implementation("io.github.groomc4:c4ang-contract-hub:1.2.0")  // 버전 업데이트
 }
 ```
 
@@ -429,20 +441,23 @@ c4ang-contract-hub/
 
 **증상**:
 ```
-Could not resolve com.c4ang:c4ang-avro-events:1.0.0-SNAPSHOT
+Could not resolve io.github.groomc4:c4ang-contract-hub:1.1.0
 ```
 
 **해결책**:
-1. Contract Hub에서 배포 확인:
-   ```bash
-   ./gradlew publishToMavenLocal
-   ls ~/.m2/repository/com/c4ang/c4ang-avro-events/
-   ```
+1. GitHub Packages에서 배포 확인:
+   - https://github.com/orgs/GroomC4/packages
 
 2. 다른 서비스 build.gradle.kts에 repository 추가:
    ```kotlin
    repositories {
-       mavenLocal()  // 추가
+       maven {
+           url = uri("https://maven.pkg.github.com/GroomC4/c4ang-packages-hub")
+           credentials {
+               username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+               password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+           }
+       }
    }
    ```
 
@@ -455,7 +470,7 @@ Could not resolve com.c4ang:c4ang-avro-events:1.0.0-SNAPSHOT
 
 **증상**:
 ```
-java.lang.NoSuchMethodError: com.c4ang.events.order.OrderCreatedEvent.getDeliveryAddress()
+java.lang.NoSuchMethodError: com.groom.ecommerce.order.event.avro.OrderCreated.getDeliveryAddress()
 ```
 
 **원인**: Order Service가 구 버전의 Avro 클래스를 사용 중
@@ -465,7 +480,7 @@ java.lang.NoSuchMethodError: com.c4ang.events.order.OrderCreatedEvent.getDeliver
 // order-service/build.gradle.kts
 dependencies {
     // 버전을 명시적으로 최신으로 변경
-    implementation("com.c4ang:c4ang-avro-events:1.1.0")
+    implementation("io.github.groomc4:c4ang-contract-hub:1.1.0")
 }
 ```
 
@@ -505,26 +520,39 @@ Schema being registered is incompatible with an earlier schema
 ```bash
 # Contract Hub에서
 ./gradlew publishToMavenLocal  # 로컬 테스트
-./gradlew publish              # Maven Repository에 배포
+
+# 태그 생성 시 GitHub Actions가 자동 배포
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 ### 다른 서비스에서 사용
 
 ```kotlin
 // build.gradle.kts
+repositories {
+    maven {
+        url = uri("https://maven.pkg.github.com/GroomC4/c4ang-packages-hub")
+        credentials {
+            username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+            password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
+}
+
 dependencies {
-    implementation("com.c4ang:c4ang-avro-events:1.0.0-SNAPSHOT")
+    implementation("io.github.groomc4:c4ang-contract-hub:1.1.0")
 }
 ```
 
 ```kotlin
 // Kotlin 코드
-import com.c4ang.events.order.OrderCreatedEvent
+import com.groom.ecommerce.order.event.avro.OrderCreated
 
-val event = OrderCreatedEvent.newBuilder()
+val event = OrderCreated.newBuilder()
     .setOrderId("ORD-123")
     .build()
 ```
 
 **단일 진실 공급원 (Single Source of Truth)**:
-- Avro 스키마 (`.avsc`) → Avro 클래스 생성 → JAR 배포 → 모든 서비스에서 사용 ✅
+- Avro 스키마 (`.avsc`) → Avro 클래스 생성 → GitHub Packages 배포 → 모든 서비스에서 사용 ✅
