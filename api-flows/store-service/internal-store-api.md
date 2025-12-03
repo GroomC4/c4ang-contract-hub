@@ -8,6 +8,7 @@ K8s 클러스터 내부에서 매장(Store) 정보를 조회하는 API입니다.
 - 상품 등록 시 스토어 소유자 검증
 - 스토어 이름 조회 (상품에 비정규화 저장)
 - 스토어 상태 확인 (REGISTERED, SUSPENDED 등)
+- 주문 생성 시 스토어 존재 여부 확인
 
 **특징:**
 - 클러스터 내부 전용 (Istio mTLS)
@@ -47,6 +48,25 @@ GET /internal/v1/stores/owner/{ownerId}
 Accept: application/json
 X-Request-ID: {UUID}  # 선택, 요청 추적용
 ```
+
+### 3. 스토어 존재 여부 확인
+
+```http
+GET /internal/v1/stores/{storeId}/exists
+```
+
+**Path Parameters:**
+- `storeId` (string, required): 스토어 고유 ID (UUID 형식)
+
+**Request Headers:**
+```http
+Accept: application/json
+X-Request-ID: {UUID}  # 선택, 요청 추적용
+```
+
+**용도:**
+- 주문 생성 전 스토어 존재 여부 빠른 확인
+- 전체 스토어 정보가 필요 없는 경우 경량 API로 사용
 
 ---
 
@@ -94,6 +114,30 @@ X-Request-ID: {UUID}  # 선택, 요청 추적용
   "updatedAt": "2024-11-20T14:22:00"
 }
 ```
+
+### 존재 여부 확인 응답 (200 OK)
+
+**필드 정의:**
+
+| 필드 | 타입 | 필수 | 설명 |
+|-----|------|-----|------|
+| `exists` | boolean | O | 스토어 존재 여부 |
+
+**응답 예시 - 존재함:**
+```json
+{
+  "exists": true
+}
+```
+
+**응답 예시 - 존재하지 않음:**
+```json
+{
+  "exists": false
+}
+```
+
+> **참고:** 존재 여부 확인 API는 404를 반환하지 않고 항상 200 OK와 함께 `exists` 필드로 결과를 반환합니다.
 
 ### 에러 응답
 
@@ -355,6 +399,32 @@ response:
   body:
     errorCode: "STORE_NOT_FOUND"
     message: "스토어를 찾을 수 없습니다"
+```
+
+```yaml
+# exists/should_check_store_exists_true.yml
+request:
+  method: GET
+  urlPath: /internal/v1/stores/550e8400-e29b-41d4-a716-446655440000/exists
+response:
+  status: 200
+  headers:
+    Content-Type: application/json
+  body:
+    exists: true
+```
+
+```yaml
+# exists/should_check_store_exists_false.yml
+request:
+  method: GET
+  urlPath: /internal/v1/stores/non-existent-store-id/exists
+response:
+  status: 200
+  headers:
+    Content-Type: application/json
+  body:
+    exists: false
 ```
 
 ### Consumer Test (Product Service)
