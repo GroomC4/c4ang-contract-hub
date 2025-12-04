@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "ProductSearchRequest",
+  "namespace": "com.groom.ecommerce.product.api.avro",
+  "doc": "K8s 내부 상품 다건 조회 API 요청 - POST /internal/v1/products/search",
+  "fields": [
+    {
+      "name": "ids",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "doc": "조회할 상품 ID 목록 (UUID 형식)"
+    }
+  ]
+}

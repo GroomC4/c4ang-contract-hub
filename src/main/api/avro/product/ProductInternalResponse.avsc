@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "name": "ProductInternalResponse",
+  "namespace": "com.groom.ecommerce.product.api.avro",
+  "doc": "K8s 내부 상품 조회 API 응답 - GET /internal/v1/products/{id}, POST /internal/v1/products/search",
+  "fields": [
+    {
+      "name": "id",
+      "type": "string",
+      "doc": "상품 고유 ID (UUID)"
+    },
+    {
+      "name": "storeId",
+      "type": "string",
+      "doc": "스토어 ID (UUID)"
+    },
+    {
+      "name": "name",
+      "type": "string",
+      "doc": "상품명"
+    },
+    {
+      "name": "storeName",
+      "type": "string",
+      "doc": "스토어명"
+    },
+    {
+      "name": "price",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 10,
+        "scale": 2
+      },
+      "doc": "상품 가격"
+    }
+  ]
+}

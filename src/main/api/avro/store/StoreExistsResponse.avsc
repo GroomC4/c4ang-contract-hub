@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "StoreExistsResponse",
+  "namespace": "com.groom.ecommerce.store.api.avro",
+  "doc": "스토어 존재 여부 확인 응답 - GET /internal/v1/stores/{storeId}/exists",
+  "fields": [
+    {
+      "name": "exists",
+      "type": "boolean",
+      "doc": "스토어 존재 여부"
+    }
+  ]
+}

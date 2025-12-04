@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "ProductNotFoundError",
+  "namespace": "com.groom.ecommerce.product.api.avro",
+  "doc": "상품을 찾을 수 없을 때의 에러 응답 - GET /internal/v1/products/{id}",
+  "fields": [
+    {
+      "name": "error",
+      "type": "string",
+      "default": "PRODUCT_NOT_FOUND",
+      "doc": "에러 코드"
+    },
+    {
+      "name": "message",
+      "type": "string",
+      "doc": "에러 메시지"
+    }
+  ]
+}
