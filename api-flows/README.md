@@ -87,7 +87,16 @@ K8s 클러스터 내부 서비스 간 동기 API 호출 흐름을 정리한 문�
 ---
 
 ### 4. Product Service
-재고 정보 조회 (추후 추가 예정)
+상품 정보 조회
+
+**APIs:**
+- [Internal Product API](./product-service/internal-product-api.md) - 상품 조회
+
+**주요 사용처:**
+- Order Service: 주문 생성 시 상품 정보 조회 (가격, 스토어 정보)
+- Payment Service: 결제 시 상품 유효성 검증
+
+[📂 Product Service 디렉토리](./product-service/)
 
 ---
 
