@@ -3,6 +3,7 @@
   "name": "OrderConfirmationCompensate",
   "namespace": "com.groom.ecommerce.saga.event.avro",
   "doc": "SAGA 주문 확정 보상 이벤트 - 결제 실패/초기화 실패 시 재고 복원",
+  "kafka_topic": "c4ang.order.confirmation-compensate",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

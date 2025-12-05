@@ -3,6 +3,7 @@
   "name": "StoreDeleted",
   "namespace": "com.groom.ecommerce.store.event.avro",
   "doc": "스토어 삭제 이벤트 - Product Service가 연관 상품 처리",
+  "kafka_topic": "c4ang.store.deleted",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

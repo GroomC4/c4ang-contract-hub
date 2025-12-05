@@ -3,6 +3,7 @@
   "name": "OrderCreationCompensate",
   "namespace": "com.groom.ecommerce.saga.event.avro",
   "doc": "SAGA 주문 생성 보상 이벤트 - 재고 예약 실패 시 주문 취소",
+  "kafka_topic": "c4ang.order.creation-compensate",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

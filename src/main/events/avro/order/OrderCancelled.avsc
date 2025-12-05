@@ -3,6 +3,7 @@
   "name": "OrderCancelled",
   "namespace": "com.groom.ecommerce.order.event.avro",
   "doc": "주문 취소 이벤트 - Product Service가 재고 복원 처리",
+  "kafka_topic": "c4ang.order.cancelled",
   "fields": [
     {"name": "eventId", "type": "string", "doc": "이벤트 고유 ID (UUID)"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

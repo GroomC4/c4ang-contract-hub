@@ -144,7 +144,7 @@ open class AvroDocGenerator : DefaultTask() {
         val namespace = schema["namespace"] as String
         val doc = schema["doc"] as? String ?: "설명 없음"
         val fields = schema["fields"] as List<Map<String, Any>>
-        val topic = inferKafkaTopic(eventName)
+        val topic = schema["kafka_topic"] as? String
 
         val markdown = StringBuilder()
         markdown.appendLine("## $eventName")
@@ -155,8 +155,10 @@ open class AvroDocGenerator : DefaultTask() {
         markdown.appendLine()
         markdown.appendLine("**Avro 스키마**: `src/main/events/avro/${schemaInfo.file.name}`")
         markdown.appendLine()
-        markdown.appendLine("**Kafka 토픽**: `$topic`")
-        markdown.appendLine()
+        if (topic != null) {
+            markdown.appendLine("**Kafka 토픽**: `$topic`")
+            markdown.appendLine()
+        }
 
         markdown.appendLine("### 필드")
         markdown.appendLine()
@@ -182,11 +184,13 @@ open class AvroDocGenerator : DefaultTask() {
     private fun generateDetailedEventSpec(schemaInfo: AvroSchemaInfo): String {
         val schema = schemaInfo.schema
         val fields = schema["fields"] as List<Map<String, Any>>
-        val topic = inferKafkaTopic(schema["name"] as String)
+        val topic = schema["kafka_topic"] as? String
 
         val markdown = StringBuilder()
-        markdown.appendLine("**Kafka 토픽**: `$topic`")
-        markdown.appendLine()
+        if (topic != null) {
+            markdown.appendLine("**Kafka 토픽**: `$topic`")
+            markdown.appendLine()
+        }
         markdown.appendLine("**Avro 스키마**: `src/main/events/avro/${schemaInfo.file.name}`")
         markdown.appendLine()
 
@@ -213,17 +217,6 @@ open class AvroDocGenerator : DefaultTask() {
         val file: File,
         val schema: Map<String, Any>
     )
-
-    private fun inferKafkaTopic(eventName: String): String {
-        // OrderCreatedEvent -> c4ang.order.created
-        // PaymentCompletedEvent -> c4ang.payment.completed
-        val words = eventName.replace("Event", "")
-            .replace(Regex("([a-z])([A-Z])"), "$1-$2")
-            .lowercase()
-            .split("-")
-
-        return "c4ang.${words.dropLast(1).joinToString(".")}.${words.last()}"
-    }
 
     private fun formatFieldType(type: Any?): String {
         return when (type) {

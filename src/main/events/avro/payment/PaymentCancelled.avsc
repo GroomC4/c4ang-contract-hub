@@ -3,6 +3,7 @@
   "name": "PaymentCancelled",
   "namespace": "com.groom.ecommerce.payment.event.avro",
   "doc": "결제 취소 이벤트 - Order Service가 주문 상태 업데이트",
+  "kafka_topic": "c4ang.payment.cancelled",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

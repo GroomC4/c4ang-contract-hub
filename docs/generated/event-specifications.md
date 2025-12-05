@@ -11,7 +11,7 @@
 
 **Avro 스키마**: `src/main/events/avro/DailyStatistics.avsc`
 
-**Kafka 토픽**: `c4ang.daily.statistics`
+**Kafka 토픽**: `c4ang.analytics.daily-statistics`
 
 ### 필드
 
@@ -35,8 +35,6 @@
 **설명**: 이벤트 메타데이터 - 모든 이벤트에 공통으로 포함되는 정보
 
 **Avro 스키마**: `src/main/events/avro/EventMetadata.avsc`
-
-**Kafka 토픽**: `c4ang..metadata`
 
 ### 필드
 
@@ -83,7 +81,7 @@
 
 **Avro 스키마**: `src/main/events/avro/OrderConfirmationCompensate.avsc`
 
-**Kafka 토픽**: `c4ang.order.confirmation.compensate`
+**Kafka 토픽**: `c4ang.order.confirmation-compensate`
 
 ### 필드
 
@@ -154,7 +152,7 @@
 
 **Avro 스키마**: `src/main/events/avro/OrderCreationCompensate.avsc`
 
-**Kafka 토픽**: `c4ang.order.creation.compensate`
+**Kafka 토픽**: `c4ang.order.creation-compensate`
 
 ### 필드
 
@@ -176,7 +174,7 @@
 
 **Avro 스키마**: `src/main/events/avro/OrderExpirationNotification.avsc`
 
-**Kafka 토픽**: `c4ang.order.expiration.notification`
+**Kafka 토픽**: `c4ang.order.expiration-notification`
 
 ### 필드
 
@@ -249,7 +247,7 @@
 
 **Avro 스키마**: `src/main/events/avro/PaymentCompletionCompensate.avsc`
 
-**Kafka 토픽**: `c4ang.payment.completion.compensate`
+**Kafka 토픽**: `c4ang.payment.completion-compensate`
 
 ### 필드
 
@@ -269,7 +267,7 @@
 
 **Namespace**: `com.groom.ecommerce.payment.event.avro`
 
-**설명**: 설명 없음
+**설명**: 결제 실패 이벤트 - Order Service가 보상 트랜잭션 실행
 
 **Avro 스키마**: `src/main/events/avro/PaymentFailed.avsc`
 
@@ -297,7 +295,7 @@
 
 **Avro 스키마**: `src/main/events/avro/PaymentInitializationFailed.avsc`
 
-**Kafka 토픽**: `c4ang.payment.initialization.failed`
+**Kafka 토픽**: `c4ang.payment.initialization-failed`
 
 ### 필드
 
@@ -345,7 +343,7 @@
 
 **Avro 스키마**: `src/main/events/avro/StockConfirmationCompensate.avsc`
 
-**Kafka 토픽**: `c4ang.stock.confirmation.compensate`
+**Kafka 토픽**: `c4ang.stock.confirmation-compensate`
 
 ### 필드
 
@@ -369,7 +367,7 @@
 
 **Avro 스키마**: `src/main/events/avro/StockConfirmationFailed.avsc`
 
-**Kafka 토픽**: `c4ang.stock.confirmation.failed`
+**Kafka 토픽**: `c4ang.stock.confirmation-failed`
 
 ### 필드
 
@@ -415,7 +413,7 @@
 
 **Avro 스키마**: `src/main/events/avro/StockReservationCompensate.avsc`
 
-**Kafka 토픽**: `c4ang.stock.reservation.compensate`
+**Kafka 토픽**: `c4ang.stock.reservation-compensate`
 
 ### 필드
 
@@ -438,7 +436,7 @@
 
 **Avro 스키마**: `src/main/events/avro/StockReservationFailed.avsc`
 
-**Kafka 토픽**: `c4ang.stock.reservation.failed`
+**Kafka 토픽**: `c4ang.stock.reservation-failed`
 
 ### 필드
 
@@ -483,7 +481,7 @@
 
 **Avro 스키마**: `src/main/events/avro/StockSyncAlert.avsc`
 
-**Kafka 토픽**: `c4ang.stock.sync.alert`
+**Kafka 토픽**: `c4ang.stock.sync-alert`
 
 ### 필드
 
@@ -531,7 +529,7 @@
 
 **Avro 스키마**: `src/main/events/avro/StoreInfoUpdated.avsc`
 
-**Kafka 토픽**: `c4ang.store.info.updated`
+**Kafka 토픽**: `c4ang.store.info-updated`
 
 ### 필드
 

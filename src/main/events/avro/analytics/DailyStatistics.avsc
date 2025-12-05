@@ -3,6 +3,7 @@
   "name": "DailyStatistics",
   "namespace": "com.groom.ecommerce.analytics.event.avro",
   "doc": "일일 통계 리포트 이벤트 - Analytics/Notification Service가 처리",
+  "kafka_topic": "c4ang.analytics.daily-statistics",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

@@ -2,6 +2,8 @@
   "type": "record",
   "name": "PaymentFailed",
   "namespace": "com.groom.ecommerce.payment.event.avro",
+  "doc": "결제 실패 이벤트 - Order Service가 보상 트랜잭션 실행",
+  "kafka_topic": "c4ang.payment.failed",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

@@ -3,6 +3,7 @@
   "name": "OrderCreated",
   "namespace": "com.groom.ecommerce.order.event.avro",
   "doc": "주문 생성 이벤트 - Product Service가 재고 예약 처리",
+  "kafka_topic": "c4ang.order.created",
   "fields": [
     {"name": "eventId", "type": "string", "doc": "이벤트 고유 ID (UUID) - 멱등성 보장"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

@@ -3,6 +3,7 @@
   "name": "OrderConfirmed",
   "namespace": "com.groom.ecommerce.order.event.avro",
   "doc": "주문 확정 이벤트 - Payment Service가 결제 대기 생성",
+  "kafka_topic": "c4ang.order.confirmed",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

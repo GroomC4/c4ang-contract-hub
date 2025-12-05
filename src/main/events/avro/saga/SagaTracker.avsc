@@ -3,6 +3,7 @@
   "name": "SagaTracker",
   "namespace": "com.groom.ecommerce.saga.event.avro",
   "doc": "SAGA 흐름 추적 및 감사 이벤트 - 모든 Saga 단계 기록",
+  "kafka_topic": "c4ang.saga.tracker",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

@@ -3,6 +3,7 @@
   "name": "OrderExpirationNotification",
   "namespace": "com.groom.ecommerce.order.event.avro",
   "doc": "주문 만료 알림 이벤트 - Notification Service가 고객 알림 발송",
+  "kafka_topic": "c4ang.order.expiration-notification",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

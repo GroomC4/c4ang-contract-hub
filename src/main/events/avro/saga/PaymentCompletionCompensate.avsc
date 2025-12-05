@@ -3,6 +3,7 @@
   "name": "PaymentCompletionCompensate",
   "namespace": "com.groom.ecommerce.saga.event.avro",
   "doc": "SAGA 결제 완료 보상 이벤트 - 재고 확정 실패 시 결제 취소",
+  "kafka_topic": "c4ang.payment.completion-compensate",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

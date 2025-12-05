@@ -3,6 +3,7 @@
   "name": "PaymentCompleted",
   "namespace": "com.groom.ecommerce.payment.event.avro",
   "doc": "결제 완료 이벤트 - Order Service가 재고 확정 처리",
+  "kafka_topic": "c4ang.payment.completed",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

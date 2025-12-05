@@ -3,6 +3,7 @@
   "name": "StockReservationFailed",
   "namespace": "com.groom.ecommerce.saga.event.avro",
   "doc": "SAGA 재고 예약 실패 이벤트 - Order Service가 보상 트랜잭션 실행",
+  "kafka_topic": "c4ang.stock.reservation-failed",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

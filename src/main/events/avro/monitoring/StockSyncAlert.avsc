@@ -3,6 +3,7 @@
   "name": "StockSyncAlert",
   "namespace": "com.groom.ecommerce.monitoring.event.avro",
   "doc": "재고 불일치 알림 이벤트 - Notification Service가 Slack/PagerDuty 알림 발송",
+  "kafka_topic": "c4ang.stock.sync-alert",
   "fields": [
     {"name": "eventId", "type": "string"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},

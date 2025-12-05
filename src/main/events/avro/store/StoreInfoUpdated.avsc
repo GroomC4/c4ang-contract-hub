@@ -3,6 +3,7 @@
   "name": "StoreInfoUpdated",
   "namespace": "com.groom.ecommerce.store.event.avro",
   "doc": "스토어 정보 변경 이벤트 - Product Service가 연관 상품의 비정규화된 스토어 정보 업데이트",
+  "kafka_topic": "c4ang.store.info-updated",
   "fields": [
     {"name": "eventId", "type": "string", "doc": "이벤트 고유 ID (UUID) - 멱등성 보장"},
     {"name": "eventTimestamp", "type": "long", "logicalType": "timestamp-millis"},
