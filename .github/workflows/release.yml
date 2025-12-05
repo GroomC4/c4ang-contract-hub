@@ -58,6 +58,7 @@ jobs:
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GROOM_GITHUB_ACTION_TOKEN }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Get generated class count
         id: count_classes

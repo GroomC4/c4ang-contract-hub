@@ -8,7 +8,7 @@ plugins {
 
 // GitHub Packages 배포를 위한 group 설정
 group = "io.github.groomc4"  // GitHub Packages: io.github.{조직명_소문자}
-version = "1.1.0"
+version = System.getenv("RELEASE_VERSION") ?: "1.1.0-SNAPSHOT"  // CI에서 태그 버전 주입, 로컬은 SNAPSHOT
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
